@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --gold: #b08d00;
+  --brown: #5c4033;
+  --coffee: #3b2a20;
+  --cream: #fff8ee;
+  --soft: #fafafa;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-cream text-brown font-sans antialiased;
+  }
+  h1, h2, h3, h4 {
+    @apply font-display text-coffee;
+  }
+  /* Visible keyboard focus for accessibility */
+  :focus-visible {
+    @apply outline-none ring-2 ring-gold ring-offset-2 ring-offset-cream;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
