@@ -1,4 +1,5 @@
 import { Navbar } from "@/components/layout/navbar";
+import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { createClient } from "@/lib/supabase/server";
 import { formatINR } from "@/lib/utils";
 import type { Category, MenuItem } from "@/types/database";
@@ -52,9 +53,7 @@ export default async function MenuPage() {
                     </div>
                     <div className="mt-4 flex items-center justify-between">
                       <span className="font-semibold text-coffee">{formatINR(item.price)}</span>
-                      <button className="rounded-full bg-gold px-4 py-1.5 text-sm font-medium text-white hover:bg-gold-dark">
-                        Add
-                      </button>
+                      <AddToCartButton menuItemId={item.id} />
                     </div>
                   </article>
                 ))}

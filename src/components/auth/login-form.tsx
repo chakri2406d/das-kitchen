@@ -36,13 +36,6 @@ function LoginFormInner() {
     router.refresh();
   }
 
-  async function signInWithGoogle() {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
-    });
-  }
-
   return (
     <main className="flex min-h-screen items-center justify-center bg-cream px-4">
       <div className="w-full max-w-sm rounded-2xl border border-brown/10 bg-soft p-8 shadow-warm">
@@ -66,12 +59,6 @@ function LoginFormInner() {
             {loading ? "Signing in…" : "Sign in"}
           </Button>
         </div>
-
-        <div className="my-4 flex items-center gap-3 text-xs text-brown/50">
-          <span className="h-px flex-1 bg-brown/15" /> or <span className="h-px flex-1 bg-brown/15" />
-        </div>
-
-        <Button onClick={signInWithGoogle} variant="outline" className="w-full">Continue with Google</Button>
 
         <p className="mt-6 text-center text-sm text-brown/70">
           New here?{" "}

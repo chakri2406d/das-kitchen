@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 
 export function SignupForm() {
+  const router = useRouter();
   const supabase = createClient();
   const [form, setForm] = useState({ full_name: "", phone: "", email: "", password: "" });
   const [msg, setMsg] = useState<string | null>(null);
@@ -19,14 +21,21 @@ export function SignupForm() {
 
   async function signUp() {
     setLoading(true); setError(null); setMsg(null);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: { data: { full_name: form.full_name, phone: form.phone } },
     });
     setLoading(false);
     if (error) return setError(error.message);
-    setMsg("Account created. Check your email to confirm, then sign in.");
+
+    // If email confirmation is off, Supabase returns a session -> log straight in.
+    if (data.session) {
+      router.push("/menu");
+      router.refresh();
+      return;
+    }
+    setMsg("Account created! You can now sign in.");
   }
 
   return (
