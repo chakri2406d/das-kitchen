@@ -27,6 +27,7 @@ export function CartItemRow({ row }: { row: CartRow }) {
       await supabase.from("cart_items").update({ quantity: next }).eq("id", row.id);
     }
     router.refresh();
+    window.dispatchEvent(new CustomEvent("cart-updated", { detail: 0 }));
     setBusy(false);
   }
 

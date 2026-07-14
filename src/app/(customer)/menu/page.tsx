@@ -10,17 +10,19 @@ export const dynamic = "force-dynamic";
 export default async function MenuPage() {
   const supabase = await createClient();
 
-  const [{ data: categories }, { data: items }] = await Promise.all([
+  const [{ data: categories }, { data: items }, { data: auth }] = await Promise.all([
     supabase.from("categories").select("id, name").eq("is_active", true).order("display_order"),
     supabase
       .from("menu_items")
       .select("id, name, description, price, image_url, food_type, is_special, category_id")
       .eq("is_available", true)
       .order("name"),
+    supabase.auth.getUser(),
   ]);
 
   const cats = (categories ?? []) as Pick<Category, "id" | "name">[];
   const menu = (items ?? []) as MenuItem[];
+  const userId = auth.user?.id ?? null;
 
   // Only show categories that actually have items.
   const sections = cats
@@ -62,7 +64,7 @@ export default async function MenuPage() {
             <h2 className="font-display text-2xl text-coffee">{cat.name}</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {groups.map((group, i) => (
-                <MenuCard key={group.key} group={group} index={i} />
+                <MenuCard key={group.key} group={group} userId={userId} index={i} />
               ))}
             </div>
           </section>

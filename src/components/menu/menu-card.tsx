@@ -4,45 +4,70 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { formatINR, cn } from "@/lib/utils";
-import type { MenuGroup } from "@/lib/menu";
+import type { MenuGroup, Variant } from "@/lib/menu";
 
-type State = "idle" | "loading" | "added";
+type State = "idle" | "added" | "error";
 
-export function MenuCard({ group, index = 0 }: { group: MenuGroup; index?: number }) {
+// Default the selector to "Full" so customers see the larger option first.
+// If there's no explicit "Full", fall back to the highest-priced variant.
+function defaultIndex(variants: Variant[]): number {
+  const full = variants.findIndex((v) => v.size?.toLowerCase() === "full");
+  if (full !== -1) return full;
+  let hi = 0;
+  variants.forEach((v, i) => {
+    if (v.price > variants[hi].price) hi = i;
+  });
+  return hi;
+}
+
+export function MenuCard({
+  group,
+  userId,
+  index = 0,
+}: {
+  group: MenuGroup;
+  userId: string | null;
+  index?: number;
+}) {
   const router = useRouter();
   const supabase = createClient();
-  const [sel, setSel] = useState(0);
+  const [sel, setSel] = useState(() => defaultIndex(group.variants));
   const [state, setState] = useState<State>("idle");
 
   const variant = group.variants[sel];
   const multi = group.variants.length > 1;
   const isVeg = group.food_type === "veg";
 
-  async function add() {
-    setState("loading");
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+  function add() {
+    // Not logged in -> straight to login (no network call needed).
+    if (!userId) {
       router.push("/login?next=/menu");
       return;
     }
-    const { data: existing } = await supabase
-      .from("cart_items")
-      .select("id, quantity")
-      .eq("user_id", user.id)
-      .eq("menu_item_id", variant.id)
-      .maybeSingle();
 
-    if (existing) {
-      await supabase.from("cart_items").update({ quantity: existing.quantity + 1 }).eq("id", existing.id);
-    } else {
-      await supabase.from("cart_items").insert({ user_id: user.id, menu_item_id: variant.id, quantity: 1 });
-    }
+    // Optimistic: show success instantly, write to the DB in the background.
     setState("added");
-    router.refresh();
-    setTimeout(() => setState("idle"), 1500);
+    setTimeout(() => setState("idle"), 1200);
+    window.dispatchEvent(new CustomEvent("cart-updated", { detail: 1 }));
+
+    void (async () => {
+      const { data: existing } = await supabase
+        .from("cart_items")
+        .select("id, quantity")
+        .eq("user_id", userId)
+        .eq("menu_item_id", variant.id)
+        .maybeSingle();
+
+      const { error } = existing
+        ? await supabase.from("cart_items").update({ quantity: existing.quantity + 1 }).eq("id", existing.id)
+        : await supabase.from("cart_items").insert({ user_id: userId, menu_item_id: variant.id, quantity: 1 });
+
+      if (error) setState("error");
+    })();
   }
+
+  const label =
+    state === "added" ? "Added ✓" : state === "error" ? "Try again" : "Add";
 
   return (
     <article
@@ -93,13 +118,12 @@ export function MenuCard({ group, index = 0 }: { group: MenuGroup; index?: numbe
 
         <button
           onClick={add}
-          disabled={state === "loading"}
           className={cn(
-            "rounded-full px-4 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-60",
-            state === "added" ? "bg-green-600" : "bg-gold hover:bg-gold-dark"
+            "rounded-full px-4 py-1.5 text-sm font-medium text-white transition-colors active:scale-95",
+            state === "added" ? "bg-green-600" : state === "error" ? "bg-red-600 hover:bg-red-700" : "bg-gold hover:bg-gold-dark"
           )}
         >
-          {state === "added" ? "Added ✓" : state === "loading" ? "Adding…" : "Add"}
+          {label}
         </button>
       </div>
     </article>

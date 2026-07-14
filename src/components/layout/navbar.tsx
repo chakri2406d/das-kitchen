@@ -3,6 +3,7 @@ import { Instagram } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { ButtonLink } from "@/components/ui/button";
 import { SignOutButton } from "@/components/layout/sign-out-button";
+import { CartBadge } from "@/components/cart/cart-badge";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { BUSINESS } from "@/lib/business";
 import type { BusinessStatus } from "@/types/database";
@@ -23,7 +24,6 @@ export async function Navbar() {
   const status = (settings?.status ?? "open") as BusinessStatus;
   const pill = STATUS_PILL[status];
 
-  // Where the account button should point, based on role.
   const dashboardHref =
     profile?.role === "admin" ? "/admin" : profile?.role === "delivery_partner" ? "/delivery" : "/orders";
   const dashboardLabel =
@@ -41,7 +41,7 @@ export async function Navbar() {
           <Link href="/#contact" className="hover:text-gold">Contact</Link>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <span className={`hidden rounded-full px-3 py-1 text-xs font-semibold sm:inline ${pill.className}`}>
             {pill.label}
           </span>
@@ -54,6 +54,8 @@ export async function Navbar() {
           >
             <Instagram size={18} />
           </a>
+
+          <CartBadge />
 
           {profile ? (
             <>
