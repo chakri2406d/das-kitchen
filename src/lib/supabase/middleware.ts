@@ -8,9 +8,10 @@ import type { Database } from "@/types/database";
  *  2. Enforces role-based access to /admin and /delivery, and login-gates
  *     the customer's private pages.
  *
- * Note: this fetches the user's role from `profiles`. For very high traffic
- * you'd instead add role as a custom JWT claim (Supabase Auth Hook) to avoid
- * the DB round-trip — but for a single-kitchen business this is plenty fast.
+ * IMPORTANT: every response we return (including redirects) must carry the
+ * cookies Supabase just refreshed on `response`. If a redirect is returned
+ * without them, the browser loses the rotated session and the user is bounced
+ * back to /login on the next request — an endless "please log in again" loop.
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -49,12 +50,20 @@ export async function updateSession(request: NextRequest) {
 
   const needsAuth = isAdminRoute || isDeliveryRoute || isCustomerPrivate;
 
+  // Build a redirect that carries over the freshly-refreshed session cookies.
+  const redirectTo = (pathname: string, keepNext: boolean) => {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname;
+    url.search = "";
+    if (keepNext) url.searchParams.set("next", path);
+    const redirect = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
+  };
+
   // Not logged in but hitting a protected route -> send to login.
   if (needsAuth && !user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", path);
-    return NextResponse.redirect(url);
+    return redirectTo("/login", true);
   }
 
   // Logged in + hitting a role-gated route -> verify role.
@@ -66,12 +75,8 @@ export async function updateSession(request: NextRequest) {
       .single();
 
     const role = profile?.role;
-    if (isAdminRoute && role !== "admin") {
-      return NextResponse.redirect(new URL("/", request.url));
-    }
-    if (isDeliveryRoute && role !== "delivery_partner") {
-      return NextResponse.redirect(new URL("/", request.url));
-    }
+    if (isAdminRoute && role !== "admin") return redirectTo("/", false);
+    if (isDeliveryRoute && role !== "delivery_partner") return redirectTo("/", false);
   }
 
   return response;

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Instagram } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { ButtonLink } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/server";
+import { SignOutButton } from "@/components/layout/sign-out-button";
+import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { BUSINESS } from "@/lib/business";
 import type { BusinessStatus } from "@/types/database";
 
@@ -14,14 +15,19 @@ const STATUS_PILL: Record<BusinessStatus, { label: string; className: string }> 
 
 export async function Navbar() {
   const supabase = await createClient();
-  const { data: settings } = await supabase
-    .from("business_settings")
-    .select("status")
-    .eq("id", 1)
-    .single();
+  const [{ data: settings }, profile] = await Promise.all([
+    supabase.from("business_settings").select("status").eq("id", 1).single(),
+    getCurrentProfile(),
+  ]);
 
   const status = (settings?.status ?? "open") as BusinessStatus;
   const pill = STATUS_PILL[status];
+
+  // Where the account button should point, based on role.
+  const dashboardHref =
+    profile?.role === "admin" ? "/admin" : profile?.role === "delivery_partner" ? "/delivery" : "/orders";
+  const dashboardLabel =
+    profile?.role === "admin" ? "Admin" : profile?.role === "delivery_partner" ? "Deliveries" : "My Orders";
 
   return (
     <header className="sticky top-0 z-50 border-b border-brown/10 bg-cream/85 backdrop-blur">
@@ -48,9 +54,19 @@ export async function Navbar() {
           >
             <Instagram size={18} />
           </a>
-          <ButtonLink href="/login" variant="primary" size="sm">
-            Sign in
-          </ButtonLink>
+
+          {profile ? (
+            <>
+              <ButtonLink href={dashboardHref} variant="outline" size="sm">
+                {dashboardLabel}
+              </ButtonLink>
+              <SignOutButton />
+            </>
+          ) : (
+            <ButtonLink href="/login" variant="primary" size="sm">
+              Sign in
+            </ButtonLink>
+          )}
         </div>
       </nav>
     </header>

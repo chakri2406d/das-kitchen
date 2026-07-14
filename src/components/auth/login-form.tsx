@@ -1,11 +1,17 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
+
+// Only allow same-site redirect targets (avoids open-redirect via ?next=).
+function safeNext(next: string | null) {
+  if (next && next.startsWith("/") && !next.startsWith("//")) return next;
+  return "/";
+}
 
 export function LoginForm() {
   return (
@@ -16,9 +22,8 @@ export function LoginForm() {
 }
 
 function LoginFormInner() {
-  const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") ?? "/";
+  const next = safeNext(params.get("next"));
   const supabase = createClient();
 
   const [email, setEmail] = useState("");
@@ -30,10 +35,22 @@ function LoginFormInner() {
     setLoading(true);
     setError(null);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) return setError(error.message);
-    router.push(next);
-    router.refresh();
+    if (error) {
+      setLoading(false);
+      return setError(error.message);
+    }
+    // Hard navigation so the freshly-set session cookie is present on the
+    // very next server request (prevents the "log in again" bounce).
+    window.location.assign(next);
+  }
+
+  async function signInWithGoogle() {
+    setError(null);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
+    });
+    if (error) setError(error.message);
   }
 
   return (
@@ -47,11 +64,13 @@ function LoginFormInner() {
           <input
             type="email" placeholder="Email" value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !loading && signInWithEmail()}
             className="w-full rounded-xl border border-brown/20 bg-white px-4 py-2.5 text-sm outline-none focus:border-gold"
           />
           <input
             type="password" placeholder="Password" value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !loading && signInWithEmail()}
             className="w-full rounded-xl border border-brown/20 bg-white px-4 py-2.5 text-sm outline-none focus:border-gold"
           />
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -59,6 +78,12 @@ function LoginFormInner() {
             {loading ? "Signing in…" : "Sign in"}
           </Button>
         </div>
+
+        <div className="my-4 flex items-center gap-3 text-xs text-brown/50">
+          <span className="h-px flex-1 bg-brown/15" /> or <span className="h-px flex-1 bg-brown/15" />
+        </div>
+
+        <Button onClick={signInWithGoogle} variant="outline" className="w-full">Continue with Google</Button>
 
         <p className="mt-6 text-center text-sm text-brown/70">
           New here?{" "}

@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 
 export function SignupForm() {
-  const router = useRouter();
   const supabase = createClient();
   const [form, setForm] = useState({ full_name: "", phone: "", email: "", password: "" });
   const [msg, setMsg] = useState<string | null>(null);
@@ -26,16 +24,18 @@ export function SignupForm() {
       password: form.password,
       options: { data: { full_name: form.full_name, phone: form.phone } },
     });
-    setLoading(false);
-    if (error) return setError(error.message);
-
-    // If email confirmation is off, Supabase returns a session -> log straight in.
-    if (data.session) {
-      router.push("/menu");
-      router.refresh();
-      return;
+    if (error) {
+      setLoading(false);
+      return setError(error.message);
     }
-    setMsg("Account created! You can now sign in.");
+    // If email confirmation is OFF, Supabase returns an active session -> go
+    // straight in. If it's ON, there's no session yet -> ask them to confirm.
+    if (data.session) {
+      window.location.assign("/");
+    } else {
+      setLoading(false);
+      setMsg("Account created. Check your email to confirm, then sign in.");
+    }
   }
 
   return (
