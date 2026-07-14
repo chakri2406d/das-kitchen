@@ -82,7 +82,7 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="relative mx-auto animate-fade-up">
+          <div className="relative mx-auto animate-scale-in">
             <div className="absolute inset-0 -z-10 rounded-full bg-gradient-to-br from-gold-soft/60 to-transparent blur-2xl" />
             <Image
               src="/logo.png"
@@ -98,14 +98,15 @@ export default async function HomePage() {
 
       {/* ── Why choose us ────────────────────────────────── */}
       <section id="why" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <h2 className="text-center font-display text-3xl text-coffee sm:text-4xl">
+        <h2 className="animate-fade-up text-center font-display text-3xl text-coffee sm:text-4xl">
           Why families choose Das Kitchen
         </h2>
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {WHY.map(({ icon: Icon, title, body }) => (
+          {WHY.map(({ icon: Icon, title, body }, i) => (
             <div
               key={title}
-              className="rounded-2xl border border-brown/10 bg-soft p-6 shadow-card transition-shadow hover:shadow-warm"
+              className="animate-fade-up rounded-2xl border border-brown/10 bg-soft p-6 shadow-card transition-shadow hover:shadow-warm"
+              style={{ animationDelay: `${i * 90}ms` }}
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gold-soft/50 text-gold-dark">
                 <Icon size={24} />
@@ -119,7 +120,7 @@ export default async function HomePage() {
 
       {/* ── Today's Specials (admin-controlled, live from Supabase) ── */}
       <section id="specials" className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <h2 className="text-center font-display text-3xl text-coffee sm:text-4xl">Today&apos;s Specials</h2>
+        <h2 className="animate-fade-up text-center font-display text-3xl text-coffee sm:text-4xl">Today&apos;s Specials</h2>
         {specials.length === 0 ? (
           <div className="mt-6 rounded-2xl border border-dashed border-gold/40 bg-gold-soft/20 p-8 text-center">
             <p className="text-sm text-brown/70">
@@ -128,8 +129,12 @@ export default async function HomePage() {
           </div>
         ) : (
           <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {specials.map((item) => (
-              <article key={item.id} className="overflow-hidden rounded-2xl border border-brown/10 bg-soft shadow-card">
+            {specials.map((item, i) => (
+              <article
+                key={item.id}
+                className="animate-fade-up overflow-hidden rounded-2xl border border-brown/10 bg-soft shadow-card transition-shadow hover:shadow-warm"
+                style={{ animationDelay: `${i * 70}ms` }}
+              >
                 {item.image_url && (
                   <Image
                     src={item.image_url}
@@ -157,7 +162,7 @@ export default async function HomePage() {
 
       {/* ── Instagram ────────────────────────────────────── */}
       <section id="instagram" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <div className="flex flex-col items-center text-center">
+        <div className="flex animate-fade-up flex-col items-center text-center">
           <span className="inline-flex items-center gap-2 rounded-full bg-brown/5 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-brown">
             <Instagram size={14} /> @{BUSINESS.instagramHandle}
           </span>
@@ -174,7 +179,8 @@ export default async function HomePage() {
               href={BUSINESS.instagramUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="group relative aspect-square overflow-hidden rounded-2xl border border-brown/10 bg-gradient-to-br from-gold-soft/50 to-cream"
+              style={{ animationDelay: `${i * 80}ms` }}
+              className="group relative aspect-square animate-scale-in overflow-hidden rounded-2xl border border-brown/10 bg-gradient-to-br from-gold-soft/50 to-cream"
             >
               <Image
                 src="/logo.png"
