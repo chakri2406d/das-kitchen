@@ -10,6 +10,7 @@ type RecentOrder = {
   status: string;
   total: number;
   placed_at: string;
+  order_items: { item_name: string; quantity: number }[];
 };
 
 export default async function AdminDashboard() {
@@ -24,7 +25,7 @@ export default async function AdminDashboard() {
       supabase.from("orders").select("total, status").gte("placed_at", todayStart.toISOString()),
       supabase
         .from("orders")
-        .select("id, order_number, status, total, placed_at")
+        .select("id, order_number, status, total, placed_at, order_items(item_name, quantity)")
         .order("placed_at", { ascending: false })
         .limit(8),
     ]);
@@ -32,7 +33,7 @@ export default async function AdminDashboard() {
   // Revenue counts only orders that weren't cancelled.
   const paidToday = (todays ?? []).filter((o) => o.status !== "cancelled");
   const revenueToday = paidToday.reduce((s, o) => s + Number(o.total ?? 0), 0);
-  const recent = (recentRows ?? []) as RecentOrder[];
+  const recent = (recentRows ?? []) as unknown as RecentOrder[];
 
   const cards = [
     { label: "Orders today", value: todays?.length ?? 0 },
@@ -67,20 +68,28 @@ export default async function AdminDashboard() {
         </p>
       ) : (
         <div className="mt-4 divide-y divide-brown/10 rounded-2xl border border-brown/10 bg-soft">
-          {recent.map((o) => (
-            <div key={o.id} className="flex items-center justify-between gap-3 px-5 py-3.5">
-              <div>
-                <p className="font-medium text-coffee">#{o.order_number ?? o.id.slice(0, 8)}</p>
-                <p className="text-xs text-brown/50">{new Date(o.placed_at).toLocaleString("en-IN")}</p>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="rounded-full bg-cream px-3 py-1 text-xs font-semibold text-coffee">
-                  {ORDER_STATUS_LABEL[o.status] ?? o.status}
-                </span>
-                <span className="font-semibold text-coffee">{formatINR(Number(o.total))}</span>
-              </div>
-            </div>
-          ))}
+          {recent.map((o) => {
+            const summary = (o.order_items ?? []).map((i) => `${i.item_name} ×${i.quantity}`).join(", ");
+            return (
+              <Link
+                key={o.id}
+                href="/admin/orders"
+                className="flex items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:bg-cream/60"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium text-coffee">#{o.order_number ?? o.id.slice(0, 8)}</p>
+                  <p className="truncate text-sm text-brown/60">{summary || "—"}</p>
+                  <p className="text-xs text-brown/45">{new Date(o.placed_at).toLocaleString("en-IN")}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-4">
+                  <span className="rounded-full bg-cream px-3 py-1 text-xs font-semibold text-coffee">
+                    {ORDER_STATUS_LABEL[o.status] ?? o.status}
+                  </span>
+                  <span className="font-semibold text-coffee">{formatINR(Number(o.total))}</span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { placeOrder, type CheckoutInput } from "@/app/(customer)/checkout/actions";
-import { formatINR } from "@/lib/utils";
+import { formatINR, cn } from "@/lib/utils";
 
-const FIELDS: { key: keyof FormState; label: string; required?: boolean; full?: boolean }[] = [
+const FIELDS: { key: keyof FormState; label: string; required?: boolean }[] = [
   { key: "fullName", label: "Full name", required: true },
   { key: "phone", label: "Phone number", required: true },
   { key: "houseNumber", label: "House / Flat no.", required: true },
@@ -50,11 +50,13 @@ export function CheckoutForm({
   const [locState, setLocState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [missing, setMissing] = useState<string[]>([]);
 
   const total = subtotal + deliveryFee;
 
   function update(key: keyof FormState, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+    setMissing((m) => m.filter((k) => k !== key)); // clear the red highlight as they type
   }
 
   function captureLocation() {
@@ -77,8 +79,14 @@ export function CheckoutForm({
     e.preventDefault();
     setError(null);
 
-    if (!form.fullName || !form.phone || !form.houseNumber || !form.area || !form.pincode) {
-      setError("Please fill in name, phone, house/flat, area and pincode.");
+    const miss = FIELDS.filter((f) => f.required && !form[f.key].trim()).map((f) => f.key);
+    if (miss.length > 0) {
+      setMissing(miss);
+      const labels = miss.map((k) => FIELDS.find((f) => f.key === k)!.label).join(", ");
+      setError(`Please fill: ${labels}.`);
+      const first = document.querySelector<HTMLInputElement>(`[name="${miss[0]}"]`);
+      first?.focus();
+      first?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 
@@ -100,25 +108,37 @@ export function CheckoutForm({
     router.refresh();
   }
 
+  const mapUrl = coords
+    ? `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`
+    : null;
+
   return (
     <form onSubmit={submit} className="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem]">
       <div className="space-y-4 rounded-2xl border border-brown/10 bg-soft p-6 shadow-card">
         <h2 className="font-display text-xl text-coffee">Delivery details</h2>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          {FIELDS.map((f) => (
-            <div key={f.key}>
-              <label className="text-xs font-medium text-brown/60">
-                {f.label}
-                {f.required && <span className="text-red-500"> *</span>}
-              </label>
-              <input
-                value={form[f.key]}
-                onChange={(e) => update(f.key, e.target.value)}
-                className="mt-1 w-full rounded-xl border border-brown/20 bg-white px-3 py-2 text-sm outline-none focus:border-gold"
-              />
-            </div>
-          ))}
+          {FIELDS.map((f) => {
+            const isMissing = missing.includes(f.key);
+            return (
+              <div key={f.key}>
+                <label className="text-xs font-medium text-brown/60">
+                  {f.label}
+                  {f.required && <span className="text-red-500"> *</span>}
+                </label>
+                <input
+                  name={f.key}
+                  value={form[f.key]}
+                  onChange={(e) => update(f.key, e.target.value)}
+                  aria-invalid={isMissing}
+                  className={cn(
+                    "mt-1 w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:border-gold",
+                    isMissing ? "border-red-400 bg-red-50" : "border-brown/20"
+                  )}
+                />
+              </div>
+            );
+          })}
         </div>
 
         <div>
@@ -146,9 +166,19 @@ export function CheckoutForm({
             </button>
           </div>
           {locState === "done" && coords && (
-            <p className="mt-2 text-xs text-green-700">
-              Location captured ✓ ({coords.lat.toFixed(5)}, {coords.lng.toFixed(5)})
-            </p>
+            <div className="mt-2 text-xs text-green-700">
+              <p>Location captured ✓ ({coords.lat.toFixed(5)}, {coords.lng.toFixed(5)})</p>
+              {mapUrl && (
+                <a
+                  href={mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-block font-semibold text-gold-dark underline"
+                >
+                  View on map to verify ↗
+                </a>
+              )}
+            </div>
           )}
           {locState === "error" && (
             <p className="mt-2 text-xs text-red-600">
@@ -175,7 +205,7 @@ export function CheckoutForm({
         <p className="rounded-lg bg-cream px-3 py-2 text-xs text-brown/70">
           Payment: Cash on Delivery
         </p>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm font-medium text-red-600">{error}</p>}
         <button
           type="submit"
           disabled={submitting}

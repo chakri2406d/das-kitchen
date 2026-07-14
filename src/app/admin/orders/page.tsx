@@ -10,7 +10,7 @@ export default async function AdminOrdersPage() {
     supabase
       .from("orders")
       .select(
-        "id, order_number, status, total, payment_method, payment_status, placed_at, delivery_partner_id, customer_lat, customer_lng, delivery_otp, delivery_address, order_items(item_name, quantity)"
+        "id, order_number, status, total, payment_method, payment_status, placed_at, delivery_partner_id, customer_lat, customer_lng, delivery_otp, delivery_notes, delivery_address, order_items(item_name, quantity)"
       )
       .order("placed_at", { ascending: false })
       .limit(100),

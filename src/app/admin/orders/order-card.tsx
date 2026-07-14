@@ -18,13 +18,13 @@ export type AdminOrder = {
   customer_lat: number | null;
   customer_lng: number | null;
   delivery_otp: string | null;
+  delivery_notes: string | null;
   delivery_address: Record<string, string> | null;
   order_items: AdminOrderItem[];
 };
 
 export type Rider = { id: string; full_name: string | null; phone: string | null };
 
-// Forward step in the lifecycle for each status.
 const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }>> = {
   pending: { to: "accepted", label: "Accept" },
   accepted: { to: "preparing", label: "Start preparing" },
@@ -49,6 +49,7 @@ export function OrderCard({ order, riders }: { order: AdminOrder; riders: Rider[
   const addr = order.delivery_address ?? {};
   const next = NEXT[order.status];
   const done = order.status === "delivered" || order.status === "cancelled";
+  const items = order.order_items ?? [];
 
   function act(fn: () => Promise<{ ok: boolean; error?: string }>) {
     setMsg(null);
@@ -58,6 +59,9 @@ export function OrderCard({ order, riders }: { order: AdminOrder; riders: Rider[
     });
   }
 
+  const fullAddress =
+    [addr.house_number, addr.street, addr.landmark, addr.area, addr.city, addr.pincode].filter(Boolean).join(", ") ||
+    "No address";
   const mapUrl =
     order.customer_lat != null && order.customer_lng != null
       ? `https://www.google.com/maps/search/?api=1&query=${order.customer_lat},${order.customer_lng}`
@@ -65,6 +69,7 @@ export function OrderCard({ order, riders }: { order: AdminOrder; riders: Rider[
 
   return (
     <article className="rounded-2xl border border-brown/10 bg-soft p-5 shadow-card">
+      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-display text-lg text-coffee">
@@ -72,9 +77,6 @@ export function OrderCard({ order, riders }: { order: AdminOrder; riders: Rider[
             <span className="ml-3 text-sm font-normal text-brown/50">
               {new Date(order.placed_at).toLocaleString("en-IN")}
             </span>
-          </p>
-          <p className="text-sm text-brown/70">
-            {addr.full_name ?? "Customer"} · {addr.phone ?? "no phone"}
           </p>
         </div>
         <div className="text-right">
@@ -85,25 +87,51 @@ export function OrderCard({ order, riders }: { order: AdminOrder; riders: Rider[
         </div>
       </div>
 
-      <p className="mt-3 text-sm text-brown/80">
-        {(order.order_items ?? []).map((i) => `${i.item_name} ×${i.quantity}`).join(", ") || "No items"}
-      </p>
-
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-brown/10 pt-3 text-sm text-brown/70">
-        <span>
-          {[addr.house_number, addr.street, addr.area, addr.city, addr.pincode].filter(Boolean).join(", ") || "No address"}
-        </span>
-        <span className="text-xs uppercase text-brown/50">
-          {order.payment_method === "cod" ? "COD" : order.payment_method} · {order.payment_status}
-        </span>
-        {order.delivery_otp && <span className="text-xs text-brown/50">OTP {order.delivery_otp}</span>}
-        {mapUrl && (
-          <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-gold-dark hover:underline">
-            Open location ↗
-          </a>
-        )}
+      {/* Items to prepare */}
+      <div className="mt-4 rounded-xl border border-brown/10 bg-white p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-brown/50">Items to prepare</p>
+        <ul className="mt-2 space-y-1.5">
+          {items.length === 0 && <li className="text-sm text-brown/50">No items recorded.</li>}
+          {items.map((i, idx) => (
+            <li key={idx} className="flex items-center gap-3 text-sm text-coffee">
+              <span className="inline-flex h-6 min-w-[1.75rem] items-center justify-center rounded-full bg-gold-soft/60 px-1.5 text-xs font-bold text-coffee">
+                ×{i.quantity}
+              </span>
+              <span className="font-medium">{i.item_name}</span>
+            </li>
+          ))}
+        </ul>
       </div>
 
+      {/* Deliver to */}
+      <div className="mt-3 rounded-xl border border-brown/10 bg-white p-4 text-sm">
+        <p className="text-xs font-semibold uppercase tracking-wide text-brown/50">Deliver to</p>
+        <p className="mt-2 font-medium text-coffee">
+          {addr.full_name ?? "Customer"}
+          {addr.phone && (
+            <a href={`tel:${addr.phone}`} className="ml-2 font-semibold text-gold-dark hover:underline">
+              {addr.phone}
+            </a>
+          )}
+        </p>
+        <p className="mt-1 text-brown/75">{fullAddress}</p>
+        {order.delivery_notes && <p className="mt-1 text-brown/60">Note: {order.delivery_notes}</p>}
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          <span className="uppercase text-brown/50">
+            {order.payment_method === "cod" ? "Cash on Delivery" : order.payment_method} · {order.payment_status}
+          </span>
+          {order.delivery_otp && (
+            <span className="rounded-full bg-cream px-2 py-0.5 font-semibold text-coffee">Delivery OTP {order.delivery_otp}</span>
+          )}
+          {mapUrl && (
+            <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-gold-dark hover:underline">
+              Open location on map ↗
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* Actions */}
       {!done && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {next && (
