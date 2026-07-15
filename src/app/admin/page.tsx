@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { formatINR, ORDER_STATUS_LABEL, formatDateTime, istDayStartISO } from "@/lib/utils";
+import { formatINR, ORDER_STATUS_LABEL, formatDateTime, istRangeStartISO } from "@/lib/utils";
+import { RANGES, DEFAULT_RANGE, isRangeKey } from "@/lib/ranges";
+import { RangeFilter } from "@/components/admin/range-filter";
 
 export const dynamic = "force-dynamic";
 
@@ -13,37 +15,50 @@ type RecentOrder = {
   order_items: { item_name: string; quantity: number }[];
 };
 
-export default async function AdminDashboard() {
-  const supabase = await createClient();
-  const todayStart = istDayStartISO(); // "today" in India, not on the server
+export default async function AdminDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string }>;
+}) {
+  const { range: rangeParam } = await searchParams;
+  const range = isRangeKey(rangeParam) ? rangeParam : DEFAULT_RANGE;
+  const { days, noun, label } = RANGES[range];
 
-  const [{ count: pending }, { count: active }, { data: todays }, { data: recentRows }] =
+  const supabase = await createClient();
+  const startISO = istRangeStartISO(days); // window start, in India time
+
+  const [{ count: pending }, { count: active }, { data: inRange }, { data: recentRows }] =
     await Promise.all([
+      // Pending + active are "right now" figures — never date-filtered.
       supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "out_for_delivery"),
-      supabase.from("orders").select("total, status").gte("placed_at", todayStart),
+      supabase.from("orders").select("total, status").gte("placed_at", startISO),
       supabase
         .from("orders")
         .select("id, order_number, status, total, placed_at, order_items(item_name, quantity)")
+        .gte("placed_at", startISO)
         .order("placed_at", { ascending: false })
-        .limit(8),
+        .limit(25),
     ]);
 
   // Revenue counts only orders that weren't cancelled.
-  const paidToday = (todays ?? []).filter((o) => o.status !== "cancelled");
-  const revenueToday = paidToday.reduce((s, o) => s + Number(o.total ?? 0), 0);
+  const counted = (inRange ?? []).filter((o) => o.status !== "cancelled");
+  const revenue = counted.reduce((s, o) => s + Number(o.total ?? 0), 0);
   const recent = (recentRows ?? []) as unknown as RecentOrder[];
 
   const cards = [
-    { label: "Orders today", value: todays?.length ?? 0 },
-    { label: "Revenue today", value: formatINR(revenueToday) },
+    { label: `Orders ${noun}`, value: inRange?.length ?? 0 },
+    { label: `Revenue ${noun}`, value: formatINR(revenue) },
     { label: "Pending orders", value: pending ?? 0 },
     { label: "Active deliveries", value: active ?? 0 },
   ];
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <h1 className="font-display text-3xl text-coffee">Dashboard</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="font-display text-3xl text-coffee">Dashboard</h1>
+        <RangeFilter current={range} />
+      </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
@@ -54,8 +69,10 @@ export default async function AdminDashboard() {
         ))}
       </div>
 
-      <div className="mt-10 flex items-center justify-between">
-        <h2 className="font-display text-2xl text-coffee">Recent orders</h2>
+      <div className="mt-10 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-display text-2xl text-coffee">
+          Orders <span className="text-base font-normal text-brown/50">· {label}</span>
+        </h2>
         <Link href="/admin/orders" className="text-sm font-semibold text-gold-dark hover:underline">
           Manage orders →
         </Link>
@@ -63,7 +80,7 @@ export default async function AdminDashboard() {
 
       {recent.length === 0 ? (
         <p className="mt-4 rounded-2xl border border-dashed border-brown/20 p-8 text-center text-brown/60">
-          No orders yet.
+          No orders {noun}. Try a wider range above.
         </p>
       ) : (
         <div className="mt-4 divide-y divide-brown/10 rounded-2xl border border-brown/10 bg-soft">

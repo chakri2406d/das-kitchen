@@ -47,11 +47,20 @@ export function formatTime(iso: string | Date): string {
   });
 }
 
-/** The exact UTC instant that "today" began in India — for day-based queries. */
-export function istDayStartISO(now: Date = new Date()): string {
+/**
+ * The UTC instant that a window of `days` began in India, counting today as
+ * day 1. days=1 -> midnight today IST; days=7 -> midnight 6 days ago IST.
+ */
+export function istRangeStartISO(days: number, now: Date = new Date()): string {
   const ist = new Date(now.getTime() + IST_OFFSET_MS);
   const midnightUtcMs = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate());
-  return new Date(midnightUtcMs - IST_OFFSET_MS).toISOString();
+  const startMs = midnightUtcMs - (Math.max(1, days) - 1) * 86_400_000;
+  return new Date(startMs - IST_OFFSET_MS).toISOString();
+}
+
+/** The exact UTC instant that "today" began in India — for day-based queries. */
+export function istDayStartISO(now: Date = new Date()): string {
+  return istRangeStartISO(1, now);
 }
 
 /** Human-readable labels for order statuses (customer-facing wording). */
