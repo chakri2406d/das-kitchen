@@ -28,7 +28,8 @@ function LoginFormInner() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  // Surfaces failures handed back by /auth/callback (e.g. Google not configured).
+  const [error, setError] = useState<string | null>(params.get("error"));
   const [loading, setLoading] = useState(false);
 
   async function signInWithEmail() {
