@@ -14,6 +14,7 @@ export function CouponsManager({ coupons }: { coupons: Coupon[] }) {
     max_discount: "",
     expiry_date: "",
     usage_limit: "",
+    once_per_customer: true,
   });
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -42,6 +43,7 @@ export function CouponsManager({ coupons }: { coupons: Coupon[] }) {
           max_discount: form.max_discount ? Number(form.max_discount) : null,
           expiry_date: form.expiry_date ? new Date(form.expiry_date).toISOString() : null,
           usage_limit: form.usage_limit ? Number(form.usage_limit) : null,
+          once_per_customer: form.once_per_customer,
         }),
       "Coupon created."
     );
@@ -89,6 +91,17 @@ export function CouponsManager({ coupons }: { coupons: Coupon[] }) {
             <input type="date" className={field} value={form.expiry_date} onChange={(e) => set("expiry_date", e.target.value)} />
           </div>
         </div>
+        <label className="mt-4 flex items-center gap-2 text-sm text-brown">
+          <input
+            type="checkbox"
+            checked={form.once_per_customer}
+            onChange={(e) => set("once_per_customer", e.target.checked)}
+            className="h-4 w-4 accent-gold"
+          />
+          One use per customer
+          <span className="text-xs text-brown/50">(uncheck for codes anyone can reuse, e.g. free delivery)</span>
+        </label>
+
         <button
           onClick={create}
           disabled={pending}
@@ -116,6 +129,7 @@ export function CouponsManager({ coupons }: { coupons: Coupon[] }) {
                       {c.max_discount ? ` · cap ${formatINR(c.max_discount)}` : ""}
                     </p>
                     <p className="text-xs text-brown/45">
+                      {c.once_per_customer ? "1 per customer · " : "Reusable · "}
                       Used {c.used_count}{c.usage_limit ? ` / ${c.usage_limit}` : ""}
                       {c.expiry_date ? ` · expires ${new Date(c.expiry_date).toLocaleDateString("en-IN")}` : ""}
                       {expired ? " · EXPIRED" : ""}

@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/menu", label: "Menu" },
   { href: "/#specials", label: "Today's Specials" },
   { href: "/#why", label: "Why Us" },
+  { href: "/#visit", label: "Find us" },
   { href: "/#contact", label: "Contact" },
 ];
 

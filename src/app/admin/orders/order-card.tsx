@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatINR, ORDER_STATUS_LABEL, formatDateTime, cn } from "@/lib/utils";
+import { formatKm, directionsUrl } from "@/lib/geo";
 import type { OrderStatus } from "@/types/database";
 import { updateOrderStatus, assignRider } from "./actions";
 
@@ -44,7 +45,21 @@ const STATUS_PILL: Record<OrderStatus, string> = {
   cancelled: "bg-red-100 text-red-800",
 };
 
-export function OrderCard({ order, riders }: { order: AdminOrder; riders: Rider[] }) {
+export function OrderCard({
+  order,
+  riders,
+  distanceKm = null,
+  radiusKm = null,
+  kitchenLat = null,
+  kitchenLng = null,
+}: {
+  order: AdminOrder;
+  riders: Rider[];
+  distanceKm?: number | null;
+  radiusKm?: number | null;
+  kitchenLat?: number | null;
+  kitchenLng?: number | null;
+}) {
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -52,6 +67,7 @@ export function OrderCard({ order, riders }: { order: AdminOrder; riders: Rider[
   const next = NEXT[order.status];
   const done = order.status === "delivered" || order.status === "cancelled";
   const items = order.order_items ?? [];
+  const tooFar = distanceKm != null && radiusKm != null && distanceKm > radiusKm;
 
   function act(fn: () => Promise<{ ok: boolean; error?: string }>) {
     setMsg(null);
@@ -121,6 +137,30 @@ export function OrderCard({ order, riders }: { order: AdminOrder; riders: Rider[
           )}
         </p>
         <p className="mt-1 text-brown/75">{fullAddress}</p>
+
+        {distanceKm != null && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
+                tooFar ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"
+              )}
+            >
+              {formatKm(distanceKm)} away (straight line)
+              {tooFar && radiusKm != null && <> · outside your {radiusKm} km range</>}
+            </span>
+            {kitchenLat != null && kitchenLng != null && order.customer_lat != null && order.customer_lng != null && (
+              <a
+                href={directionsUrl(kitchenLat, kitchenLng, order.customer_lat, order.customer_lng)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-semibold text-gold-dark hover:underline"
+              >
+                Road route &amp; time ↗
+              </a>
+            )}
+          </div>
+        )}
         {order.delivery_notes && <p className="mt-1 text-brown/60">Note: {order.delivery_notes}</p>}
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
           <span className="uppercase text-brown/50">

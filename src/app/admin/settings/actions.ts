@@ -35,6 +35,8 @@ export async function setBusinessStatus(status: BusinessStatus): Promise<ActionR
 
 export type SettingsInput = {
   is_accepting_orders: boolean;
+  kitchen_lat: number | null;
+  kitchen_lng: number | null;
   min_order_amount: number;
   delivery_fee: number;
   delivery_radius_km: number;
@@ -55,6 +57,8 @@ export async function updateSettings(input: SettingsInput): Promise<ActionResult
     .from("business_settings")
     .update({
       is_accepting_orders: input.is_accepting_orders,
+      kitchen_lat: input.kitchen_lat,
+      kitchen_lng: input.kitchen_lng,
       min_order_amount: input.min_order_amount,
       delivery_fee: input.delivery_fee,
       delivery_radius_km: input.delivery_radius_km,

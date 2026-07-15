@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
+import { osmEmbedUrl } from "@/lib/geo";
 import type { BusinessSettings, BusinessStatus } from "@/types/database";
 import { setBusinessStatus, updateSettings } from "./actions";
 
@@ -18,6 +19,14 @@ function num(v: string) {
 
 export function SettingsForm({ settings }: { settings: BusinessSettings }) {
   const [status, setStatus] = useState<BusinessStatus>(settings.status);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    settings.kitchen_lat != null && settings.kitchen_lng != null
+      ? { lat: settings.kitchen_lat, lng: settings.kitchen_lng }
+      : null
+  );
+  const [locBusy, setLocBusy] = useState(false);
+  const [locErr, setLocErr] = useState<string | null>(null);
+
   const [form, setForm] = useState({
     is_accepting_orders: settings.is_accepting_orders,
     min_order_amount: String(settings.min_order_amount ?? 0),
@@ -57,6 +66,8 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
     startTransition(async () => {
       const res = await updateSettings({
         is_accepting_orders: form.is_accepting_orders,
+        kitchen_lat: coords?.lat ?? null,
+        kitchen_lng: coords?.lng ?? null,
         min_order_amount: num(form.min_order_amount),
         delivery_fee: num(form.delivery_fee),
         delivery_radius_km: num(form.delivery_radius_km),
@@ -105,6 +116,100 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
           />
           Accepting online orders
         </label>
+      </section>
+
+      {/* Kitchen location — powers distance + delivery radius */}
+      <section className="rounded-2xl border border-brown/10 bg-soft p-6 shadow-card">
+        <h2 className="font-display text-xl text-coffee">Kitchen location</h2>
+        <p className="mt-1 text-sm text-brown/60">
+          Set this once, standing at the kitchen. It powers the &ldquo;how far away&rdquo; figure on every
+          order and the delivery-radius check.
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setLocErr(null);
+              if (!("geolocation" in navigator)) {
+                setLocErr("This browser can't share location.");
+                return;
+              }
+              setLocBusy(true);
+              navigator.geolocation.getCurrentPosition(
+                (p) => {
+                  setCoords({ lat: p.coords.latitude, lng: p.coords.longitude });
+                  setLocBusy(false);
+                },
+                () => {
+                  setLocErr("Couldn't get location — allow it, or paste coordinates below.");
+                  setLocBusy(false);
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+              );
+            }}
+            disabled={locBusy}
+            className="rounded-full bg-coffee px-5 py-2 text-sm font-medium text-cream hover:bg-brown disabled:opacity-60"
+          >
+            {locBusy ? "Locating…" : coords ? "Update to my location" : "Use my current location"}
+          </button>
+          {coords && (
+            <button
+              type="button"
+              onClick={() => setCoords(null)}
+              className="rounded-full border border-brown/25 px-4 py-2 text-sm text-brown hover:bg-brown/5"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <span className={labelCls}>Latitude</span>
+            <input
+              className={field}
+              inputMode="decimal"
+              placeholder="17.44263"
+              value={coords?.lat ?? ""}
+              onChange={(e) => {
+                const lat = Number(e.target.value);
+                setCoords((c) => ({ lat: Number.isFinite(lat) ? lat : 0, lng: c?.lng ?? 0 }));
+              }}
+            />
+          </div>
+          <div>
+            <span className={labelCls}>Longitude</span>
+            <input
+              className={field}
+              inputMode="decimal"
+              placeholder="78.48313"
+              value={coords?.lng ?? ""}
+              onChange={(e) => {
+                const lng = Number(e.target.value);
+                setCoords((c) => ({ lat: c?.lat ?? 0, lng: Number.isFinite(lng) ? lng : 0 }));
+              }}
+            />
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-brown/50">
+          Tip: in Google Maps, right-click your kitchen &rarr; click the coordinates to copy them, then paste here.
+        </p>
+        {locErr && <p className="mt-2 text-sm text-red-600">{locErr}</p>}
+
+        {coords && coords.lat !== 0 && coords.lng !== 0 && (
+          <div className="mt-4 overflow-hidden rounded-xl border border-brown/15">
+            <iframe
+              title="Kitchen location"
+              src={osmEmbedUrl(coords.lat, coords.lng)}
+              className="h-52 w-full border-0"
+              loading="lazy"
+            />
+            <p className="bg-white px-4 py-2 text-xs text-brown/60">
+              Check the pin is on your kitchen. Remember to press <strong>Save settings</strong> below.
+            </p>
+          </div>
+        )}
       </section>
 
       {/* Delivery + business info */}

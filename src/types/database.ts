@@ -111,6 +111,7 @@ export type CartItem = {
 export type Coupon = {
   id: string;
   code: string;
+  once_per_customer: boolean;
   coupon_type: CouponType;
   discount_value: number;
   min_order_amount: number | null;
@@ -261,7 +262,16 @@ export type Database = {
           label: string | null;
           reason: string;
           min_required: number | null;
+          once_per_customer: boolean;
         }[];
+      };
+      items_sold_today: {
+        Args: { p_item_id: string };
+        Returns: number;
+      };
+      bump_order_counts: {
+        Args: { p_order_id: string };
+        Returns: undefined;
       };
       redeem_coupon: {
         Args: { p_coupon_id: string };

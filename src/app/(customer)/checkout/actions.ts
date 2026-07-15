@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { distanceKm } from "@/lib/geo";
 
 export type CheckoutInput = {
   fullName: string;
@@ -28,7 +29,13 @@ export type CouponResult =
 
 type CartRow = {
   quantity: number;
-  menu_items: { id: string; name: string; price: number } | null;
+  menu_items: {
+    id: string;
+    name: string;
+    price: number;
+    is_available: boolean;
+    daily_quantity_limit: number | null;
+  } | null;
 };
 
 const rupees = (n: number) => `₹${Math.round(n)}`;
@@ -64,6 +71,27 @@ export async function validateCoupon(code: string, subtotal: number): Promise<Co
   if (!row || row.reason !== "ok" || !row.coupon_id) {
     return { ok: false, error: couponError(row?.reason ?? "not_found", row?.code ?? clean, row?.min_required ?? null) };
   }
+
+  // One use per customer (the default for promo codes) — checked against this
+  // customer's own past orders, so a code can't be farmed forever.
+  if (row.once_per_customer) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: prior } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("customer_id", user.id)
+        .eq("coupon_id", row.coupon_id)
+        .neq("status", "cancelled")
+        .limit(1);
+      if (prior && prior.length > 0) {
+        return { ok: false, error: `You've already used ${row.code ?? clean} on a previous order.` };
+      }
+    }
+  }
+
   return {
     ok: true,
     couponId: row.coupon_id,
@@ -84,7 +112,7 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
   // ---- Cart -----------------------------------------------------------------
   const { data: cart } = await supabase
     .from("cart_items")
-    .select("quantity, menu_items(id, name, price)")
+    .select("quantity, menu_items(id, name, price, is_available, daily_quantity_limit)")
     .eq("user_id", user.id);
 
   const items = ((cart ?? []) as unknown as CartRow[]).filter((r) => r.menu_items);
@@ -92,10 +120,33 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
 
   const subtotal = items.reduce((sum, r) => sum + Number(r.menu_items!.price) * r.quantity, 0);
 
+  // ---- Sold out? -----------------------------------------------------------
+  const unavailable = items.filter((r) => !r.menu_items!.is_available).map((r) => r.menu_items!.name);
+  if (unavailable.length > 0) {
+    return {
+      ok: false,
+      error: `${unavailable.join(", ")} ${unavailable.length === 1 ? "is" : "are"} no longer available. Please remove ${unavailable.length === 1 ? "it" : "them"} from your cart.`,
+    };
+  }
+
+  // ---- Daily cap: don't sell more than the kitchen cooked -------------------
+  for (const r of items) {
+    const limit = r.menu_items!.daily_quantity_limit;
+    if (limit == null) continue;
+    const { data: soldToday } = await supabase.rpc("items_sold_today", { p_item_id: r.menu_items!.id });
+    const left = limit - Number(soldToday ?? 0);
+    if (left <= 0) {
+      return { ok: false, error: `${r.menu_items!.name} is sold out for today.` };
+    }
+    if (r.quantity > left) {
+      return { ok: false, error: `Only ${left} left of ${r.menu_items!.name} today. Please reduce the quantity.` };
+    }
+  }
+
   // ---- Kitchen rules (enforced server-side, never trust the browser) --------
   const { data: settings } = await supabase
     .from("business_settings")
-    .select("status, is_accepting_orders, min_order_amount, delivery_fee")
+    .select("status, is_accepting_orders, min_order_amount, delivery_fee, delivery_radius_km, kitchen_lat, kitchen_lng")
     .eq("id", 1)
     .single();
 
@@ -112,6 +163,24 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
   }
 
   const deliveryFee = Number(settings?.delivery_fee ?? 0);
+
+  // ---- Too far to deliver? (only when we know both points) ------------------
+  const radius = Number(settings?.delivery_radius_km ?? 0);
+  if (
+    radius > 0 &&
+    settings?.kitchen_lat != null &&
+    settings?.kitchen_lng != null &&
+    input.lat != null &&
+    input.lng != null
+  ) {
+    const away = distanceKm(settings.kitchen_lat, settings.kitchen_lng, input.lat, input.lng);
+    if (away > radius) {
+      return {
+        ok: false,
+        error: `Sorry — you're about ${away.toFixed(1)} km away and we only deliver within ${radius} km of the kitchen.`,
+      };
+    }
+  }
 
   // ---- Coupon (re-validated here, not taken on trust) ----------------------
   let discount = 0;
@@ -183,6 +252,9 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
 
   const { error: itemsErr } = await supabase.from("order_items").insert(orderItems);
   if (itemsErr) return { ok: false, error: itemsErr.message };
+
+  // Powers "Best Sellers" / specials ordering.
+  await supabase.rpc("bump_order_counts", { p_order_id: order.id });
 
   if (couponId) await supabase.rpc("redeem_coupon", { p_coupon_id: couponId });
 

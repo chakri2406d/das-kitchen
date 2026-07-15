@@ -1,6 +1,16 @@
-/** Distance in km between two lat/lng points (haversine). */
+/**
+ * Great-circle ("straight line") distance in km between two points, haversine.
+ *
+ * This is exact as a straight line — but it is NOT road distance. A customer
+ * 2.9 km away as the crow flies can be 4.5 km by road. Anywhere we show this to
+ * a human we label it "straight line" and offer a Directions link for the real
+ * route. Road distance would need a paid routing API.
+ *
+ * R uses the IUGG mean Earth radius; at city scale the error is centimetres —
+ * far smaller than phone GPS accuracy (typically 10-50 m).
+ */
 export function distanceKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
-  const R = 6371;
+  const R = 6371.0088;
   const dLat = ((bLat - aLat) * Math.PI) / 180;
   const dLng = ((bLng - aLng) * Math.PI) / 180;
   const s =
@@ -29,4 +39,14 @@ export function osmEmbedUrl(lat: number, lng: number, span = 0.008): string {
 
 export function osmLinkUrl(lat: number, lng: number): string {
   return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
+}
+
+/** Google Maps driving directions between two points (free deep link). */
+export function directionsUrl(fromLat: number, fromLng: number, toLat: number, toLng: number): string {
+  return `https://www.google.com/maps/dir/?api=1&origin=${fromLat},${fromLng}&destination=${toLat},${toLng}&travelmode=driving`;
+}
+
+/** Directions to a place from wherever the customer currently is. */
+export function directionsToUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
 }

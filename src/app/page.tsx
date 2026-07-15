@@ -4,6 +4,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { formatINR } from "@/lib/utils";
 import { BUSINESS } from "@/lib/business";
+import { osmEmbedUrl, directionsToUrl } from "@/lib/geo";
 import type { MenuItem } from "@/types/database";
 import { ChefHat, Sparkles, Truck, HeartHandshake, MapPin, Phone, Mail, Instagram } from "lucide-react";
 
@@ -29,7 +30,7 @@ export default async function HomePage() {
       .limit(6),
     supabase
       .from("business_settings")
-      .select("phone, email, whatsapp, fssai_license, kitchen_address")
+      .select("phone, email, whatsapp, fssai_license, kitchen_address, kitchen_lat, kitchen_lng, open_time, close_time")
       .eq("id", 1)
       .single(),
   ]);
@@ -40,6 +41,12 @@ export default async function HomePage() {
   const email = settings?.email;
   const fssai = settings?.fssai_license;
   const address = settings?.kitchen_address || BUSINESS.location;
+  const kLat = settings?.kitchen_lat ?? null;
+  const kLng = settings?.kitchen_lng ?? null;
+  const hours =
+    settings?.open_time && settings?.close_time
+      ? `${settings.open_time.slice(0, 5)} - ${settings.close_time.slice(0, 5)}`
+      : null;
 
   return (
     <main className="min-h-screen bg-cream">
@@ -200,6 +207,72 @@ export default async function HomePage() {
           <ButtonLink href={BUSINESS.instagramUrl} variant="coffee" size="md">
             Follow @{BUSINESS.instagramHandle}
           </ButtonLink>
+        </div>
+      </section>
+
+      {/* ── Visit us / takeaway ──────────────────────────── */}
+      <section id="visit" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <div className="flex animate-fade-up flex-col items-center text-center">
+          <span className="inline-flex items-center gap-2 rounded-full bg-brown/5 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-brown">
+            <MapPin size={14} /> Takeaway welcome
+          </span>
+          <h2 className="mt-4 font-display text-3xl text-coffee sm:text-4xl">Find us</h2>
+          <p className="mt-2 max-w-md text-brown/70">
+            Prefer to pick it up yourself? Drop by the kitchen — we&apos;d love to see you.
+          </p>
+        </div>
+
+        <div className="mt-8 grid gap-5 md:grid-cols-[1.2fr_1fr]">
+          <div className="overflow-hidden rounded-2xl border border-brown/10 shadow-card">
+            {kLat != null && kLng != null ? (
+              <iframe
+                title="Das Kitchen location"
+                src={osmEmbedUrl(kLat, kLng, 0.006)}
+                className="h-72 w-full border-0 md:h-full"
+                loading="lazy"
+              />
+            ) : (
+              <div className="flex h-72 items-center justify-center bg-gold-soft/20 p-8 text-center text-sm text-brown/60">
+                Map appears once the kitchen location is set in Settings.
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col justify-center gap-4 rounded-2xl border border-brown/10 bg-soft p-6 shadow-card">
+            <div>
+              <p className="font-display text-xl text-coffee">Das Kitchen</p>
+              <p className="mt-2 flex items-start gap-2 text-sm text-brown/75">
+                <MapPin size={16} className="mt-0.5 shrink-0" /> {address}
+              </p>
+            </div>
+
+            {hours && (
+              <p className="text-sm text-brown/75">
+                Open <span className="font-semibold text-coffee">{hours}</span> daily
+              </p>
+            )}
+
+            {phone && (
+              <a href={`tel:${phone}`} className="flex items-center gap-2 text-sm font-medium text-brown hover:text-gold">
+                <Phone size={16} /> {phone}
+              </a>
+            )}
+
+            <div className="mt-1 flex flex-wrap gap-2">
+              {kLat != null && kLng != null && (
+                <ButtonLink href={directionsToUrl(kLat, kLng)} variant="coffee" size="md">
+                  Get directions
+                </ButtonLink>
+              )}
+              <ButtonLink
+                href={`https://wa.me/${whatsapp}?text=${encodeURIComponent("Hi Das Kitchen! I'd like to order for takeaway.")}`}
+                variant="whatsapp"
+                size="md"
+              >
+                Order takeaway
+              </ButtonLink>
+            </div>
+          </div>
         </div>
       </section>
 

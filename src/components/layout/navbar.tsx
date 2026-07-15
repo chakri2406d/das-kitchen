@@ -40,6 +40,7 @@ export async function Navbar() {
           <Link href="/menu" className="hover:text-gold">Menu</Link>
           <Link href="/#specials" className="hover:text-gold">Today&apos;s Specials</Link>
           <Link href="/#why" className="hover:text-gold">Why Us</Link>
+          <Link href="/#visit" className="hover:text-gold">Find us</Link>
           <Link href="/#contact" className="hover:text-gold">Contact</Link>
         </div>
 

@@ -19,6 +19,7 @@ async function requireAdmin() {
 
 export type CouponInput = {
   code: string;
+  once_per_customer: boolean;
   coupon_type: CouponType;
   discount_value: number;
   min_order_amount: number;
@@ -42,6 +43,7 @@ export async function createCoupon(input: CouponInput): Promise<ActionResult> {
     max_discount: input.max_discount,
     expiry_date: input.expiry_date,
     usage_limit: input.usage_limit,
+    once_per_customer: input.once_per_customer,
     is_active: true,
   });
   if (error) return { ok: false, error: error.message };
