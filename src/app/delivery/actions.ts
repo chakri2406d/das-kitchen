@@ -6,6 +6,10 @@ import type { RiderStatus } from "@/types/database";
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
 
+/** Shown when Postgres row-level security silently rejects the write. */
+const BLOCKED =
+  "Couldn't save this — the database rejected the update (rider write permission is missing). Run das_kitchen_fix_rider_permissions.sql in Supabase, then try again.";
+
 async function requireRider() {
   const supabase = await createClient();
   const {
@@ -42,12 +46,15 @@ export async function startDelivery(orderId: string): Promise<ActionResult> {
   const auth = await requireRider();
   if (!auth.ok) return { ok: false, error: auth.error };
 
-  const { error } = await auth.supabase
+  const { data: updated, error } = await auth.supabase
     .from("orders")
     .update({ status: "out_for_delivery" })
     .eq("id", orderId)
-    .eq("delivery_partner_id", auth.userId);
+    .eq("delivery_partner_id", auth.userId)
+    .select("id")
+    .maybeSingle();
   if (error) return { ok: false, error: error.message };
+  if (!updated) return { ok: false, error: BLOCKED };
 
   await auth.supabase.from("delivery_partners").update({ status: "busy" }).eq("id", auth.userId);
   revalidate();
@@ -74,11 +81,18 @@ export async function completeDelivery(orderId: string, otp: string): Promise<Ac
 
   if (!order) return { ok: false, error: "Order not found, or it isn't assigned to you." };
   if (order.status === "delivered") return { ok: false, error: "This order is already marked delivered." };
-  if (order.delivery_otp && entered !== order.delivery_otp) {
+  // Fail closed: no OTP on the order means we cannot verify the handover.
+  if (!order.delivery_otp) {
+    return {
+      ok: false,
+      error: "This order has no delivery OTP, so it can't be verified. Ask the kitchen to close it from the admin panel.",
+    };
+  }
+  if (entered !== order.delivery_otp) {
     return { ok: false, error: "Wrong OTP. Ask the customer to read it from their order screen." };
   }
 
-  const { error } = await auth.supabase
+  const { data: updated, error } = await auth.supabase
     .from("orders")
     .update({
       status: "delivered",
@@ -87,8 +101,13 @@ export async function completeDelivery(orderId: string, otp: string): Promise<Ac
       ...(order.payment_method === "cod" ? { payment_status: "paid" as const } : {}),
     })
     .eq("id", orderId)
-    .eq("delivery_partner_id", auth.userId);
+    .eq("delivery_partner_id", auth.userId)
+    .select("id, status")
+    .maybeSingle();
+
   if (error) return { ok: false, error: error.message };
+  // A blocked UPDATE returns no error and changes nothing — never report success on that.
+  if (!updated || updated.status !== "delivered") return { ok: false, error: BLOCKED };
 
   const { data: dp } = await auth.supabase
     .from("delivery_partners")

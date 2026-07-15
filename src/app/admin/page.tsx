@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { formatINR, ORDER_STATUS_LABEL } from "@/lib/utils";
+import { formatINR, ORDER_STATUS_LABEL, formatDateTime, istDayStartISO } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -15,14 +15,13 @@ type RecentOrder = {
 
 export default async function AdminDashboard() {
   const supabase = await createClient();
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  const todayStart = istDayStartISO(); // "today" in India, not on the server
 
   const [{ count: pending }, { count: active }, { data: todays }, { data: recentRows }] =
     await Promise.all([
       supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "out_for_delivery"),
-      supabase.from("orders").select("total, status").gte("placed_at", todayStart.toISOString()),
+      supabase.from("orders").select("total, status").gte("placed_at", todayStart),
       supabase
         .from("orders")
         .select("id, order_number, status, total, placed_at, order_items(item_name, quantity)")
@@ -43,7 +42,7 @@ export default async function AdminDashboard() {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <h1 className="font-display text-3xl text-coffee">Dashboard</h1>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -79,7 +78,7 @@ export default async function AdminDashboard() {
                 <div className="min-w-0">
                   <p className="font-medium text-coffee">#{o.order_number ?? o.id.slice(0, 8)}</p>
                   <p className="truncate text-sm text-brown/60">{summary || "—"}</p>
-                  <p className="text-xs text-brown/45">{new Date(o.placed_at).toLocaleString("en-IN")}</p>
+                  <p className="text-xs text-brown/45">{formatDateTime(o.placed_at)}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-4">
                   <span className="rounded-full bg-cream px-3 py-1 text-xs font-semibold text-coffee">

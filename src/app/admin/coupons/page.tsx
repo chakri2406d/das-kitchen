@@ -9,7 +9,7 @@ export default async function AdminCouponsPage() {
   const { data } = await supabase.from("coupons").select("*").order("created_at", { ascending: false });
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-10">
+    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <h1 className="font-display text-3xl text-coffee">Coupons</h1>
       <p className="mt-2 text-brown/70">Create discount codes and turn them on or off.</p>
       <div className="mt-6">

@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { Navbar } from "@/components/layout/navbar";
+import { OrderTracker } from "@/components/orders/order-tracker";
+import { PlacedCelebration } from "@/components/orders/placed-celebration";
 import { createClient } from "@/lib/supabase/server";
-import { formatINR, ORDER_STATUS_LABEL } from "@/lib/utils";
+import { formatINR, ORDER_STATUS_LABEL, formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 type OrderItem = { item_name: string; quantity: number };
+type RiderProfile = { full_name: string | null; phone: string | null } | null;
 type OrderRow = {
   id: string;
   order_number: string | null;
@@ -14,6 +17,9 @@ type OrderRow = {
   payment_method: string;
   placed_at: string;
   delivery_otp: string | null;
+  customer_lat: number | null;
+  customer_lng: number | null;
+  delivery_partner_id: string | null;
   order_items: OrderItem[];
 };
 
@@ -35,7 +41,7 @@ export default async function OrdersPage({
     ? await supabase
         .from("orders")
         .select(
-          "id, order_number, status, total, payment_method, placed_at, delivery_otp, order_items(item_name, quantity)"
+          "id, order_number, status, total, payment_method, placed_at, delivery_otp, customer_lat, customer_lng, delivery_partner_id, order_items(item_name, quantity)"
         )
         .eq("customer_id", user.id)
         .order("placed_at", { ascending: false })
@@ -43,17 +49,20 @@ export default async function OrdersPage({
 
   const orders = (data ?? []) as unknown as OrderRow[];
 
+  // Fetch rider details for any live order that has one assigned.
+  const riderIds = [...new Set(orders.filter((o) => !FINISHED.has(o.status) && o.delivery_partner_id).map((o) => o.delivery_partner_id!))];
+  const riderMap = new Map<string, RiderProfile>();
+  if (riderIds.length > 0) {
+    const { data: riders } = await supabase.from("profiles").select("id, full_name, phone").in("id", riderIds);
+    (riders ?? []).forEach((r) => riderMap.set(r.id, { full_name: r.full_name, phone: r.phone }));
+  }
+
   return (
     <main className="min-h-screen bg-cream">
       <Navbar />
+      {placed && <PlacedCelebration orderNumber={placed} />}
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
         <h1 className="font-display text-3xl text-coffee">My Orders</h1>
-
-        {placed && (
-          <div className="mt-5 rounded-2xl border border-green-200 bg-green-50 p-4 text-green-800">
-            Order <span className="font-semibold">{placed}</span> placed! We&apos;ll start preparing it shortly.
-          </div>
-        )}
 
         {orders.length === 0 ? (
           <div className="mt-8 rounded-2xl border border-dashed border-brown/20 p-10 text-center">
@@ -75,7 +84,7 @@ export default async function OrdersPage({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-display text-lg text-coffee">#{o.order_number ?? o.id.slice(0, 8)}</p>
-                      <p className="text-xs text-brown/50">{new Date(o.placed_at).toLocaleString("en-IN")}</p>
+                      <p className="text-xs text-brown/50">{formatDateTime(o.placed_at)}</p>
                     </div>
                     <span className="rounded-full bg-cream px-3 py-1 text-xs font-semibold text-coffee">
                       {ORDER_STATUS_LABEL[o.status] ?? o.status}
@@ -86,18 +95,26 @@ export default async function OrdersPage({
                     {(o.order_items ?? []).map((i) => `${i.item_name} ×${i.quantity}`).join(", ")}
                   </p>
 
-                  {/* Delivery OTP — the customer reads this to the rider on handover. */}
+                  {live && (
+                    <OrderTracker
+                      orderId={o.id}
+                      initialStatus={o.status}
+                      customerLat={o.customer_lat}
+                      customerLng={o.customer_lng}
+                      rider={o.delivery_partner_id ? riderMap.get(o.delivery_partner_id) ?? null : null}
+                    />
+                  )}
+
+                  {/* Delivery OTP — read this to the rider on handover. */}
                   {live && o.delivery_otp && (
                     <div
                       className={
                         arriving
-                          ? "mt-4 rounded-xl border border-gold/50 bg-gold-soft/30 p-4"
-                          : "mt-4 rounded-xl border border-brown/10 bg-white p-4"
+                          ? "mt-3 rounded-xl border border-gold/50 bg-gold-soft/30 p-4"
+                          : "mt-3 rounded-xl border border-brown/10 bg-white p-4"
                       }
                     >
-                      <p className="text-xs font-semibold uppercase tracking-wide text-brown/60">
-                        Delivery OTP
-                      </p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-brown/60">Delivery OTP</p>
                       <p className="mt-1 font-display text-3xl tracking-[0.4em] text-coffee">{o.delivery_otp}</p>
                       <p className="mt-1 text-xs text-brown/60">
                         {arriving

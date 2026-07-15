@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { formatINR, ORDER_STATUS_LABEL, cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import { formatINR, ORDER_STATUS_LABEL, formatDateTime, cn } from "@/lib/utils";
 import type { OrderStatus } from "@/types/database";
 import { updateOrderStatus, assignRider } from "./actions";
 
@@ -44,6 +45,7 @@ const STATUS_PILL: Record<OrderStatus, string> = {
 };
 
 export function OrderCard({ order, riders }: { order: AdminOrder; riders: Rider[] }) {
+  const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const addr = order.delivery_address ?? {};
@@ -55,7 +57,11 @@ export function OrderCard({ order, riders }: { order: AdminOrder; riders: Rider[
     setMsg(null);
     startTransition(async () => {
       const res = await fn();
-      if (!res.ok) setMsg(res.error ?? "Something went wrong.");
+      if (!res.ok) {
+        setMsg(res.error ?? "Something went wrong.");
+        return;
+      }
+      router.refresh();
     });
   }
 
@@ -75,7 +81,7 @@ export function OrderCard({ order, riders }: { order: AdminOrder; riders: Rider[
           <p className="font-display text-lg text-coffee">
             #{order.order_number ?? order.id.slice(0, 8)}
             <span className="ml-3 text-sm font-normal text-brown/50">
-              {new Date(order.placed_at).toLocaleString("en-IN")}
+              {formatDateTime(order.placed_at)}
             </span>
           </p>
         </div>

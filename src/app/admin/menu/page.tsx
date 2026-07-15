@@ -12,7 +12,7 @@ export default async function AdminMenuPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10">
+    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <h1 className="font-display text-3xl text-coffee">Menu</h1>
       <p className="mt-2 text-brown/70">Add dishes, set availability, and mark Today&apos;s Specials.</p>
       <div className="mt-6">

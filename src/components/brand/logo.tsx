@@ -12,17 +12,18 @@ export function Logo({
   className?: string;
 }) {
   return (
-    <Link href="/" className={cn("inline-flex items-center gap-2.5", className)} aria-label="Das Kitchen home">
+    <Link href="/" className={cn("inline-flex shrink-0 items-center gap-2.5", className)} aria-label="Das Kitchen home">
       <Image
         src="/logo.png"
         alt="Das Kitchen"
         width={size}
         height={size}
         priority
-        className="rounded-full"
+        className="shrink-0 rounded-full"
       />
       {withWordmark && (
-        <span className="font-display text-xl font-semibold text-coffee tracking-tight">
+        // Hidden on the narrowest phones so the header never wraps to two lines.
+        <span className="hidden whitespace-nowrap font-display text-xl font-semibold tracking-tight text-coffee sm:inline">
           Das Kitchen
         </span>
       )}

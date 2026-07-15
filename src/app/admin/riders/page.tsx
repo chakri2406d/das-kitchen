@@ -39,7 +39,7 @@ export default async function AdminRidersPage() {
   });
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-10">
+    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <h1 className="font-display text-3xl text-coffee">Delivery Partners</h1>
       <p className="mt-2 text-brown/70">
         Turn a customer account into a rider. They&apos;ll get the delivery portal and show up in

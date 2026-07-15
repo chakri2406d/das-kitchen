@@ -251,7 +251,23 @@ export type Database = {
       business_settings: Table<BusinessSettings>;
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      apply_coupon: {
+        Args: { p_code: string; p_subtotal: number };
+        Returns: {
+          coupon_id: string | null;
+          code: string | null;
+          discount: number;
+          label: string | null;
+          reason: string;
+          min_required: number | null;
+        }[];
+      };
+      redeem_coupon: {
+        Args: { p_coupon_id: string };
+        Returns: undefined;
+      };
+    };
     Enums: {
       user_role: UserRole;
       order_status: OrderStatus;

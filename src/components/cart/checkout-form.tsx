@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { placeOrder, type CheckoutInput } from "@/app/(customer)/checkout/actions";
+import { placeOrder, validateCoupon, type CheckoutInput } from "@/app/(customer)/checkout/actions";
 import { formatINR, cn } from "@/lib/utils";
 
 const FIELDS: { key: keyof FormState; label: string; required?: boolean }[] = [
@@ -27,17 +27,23 @@ type FormState = {
   pincode: string;
 };
 
+type AppliedCoupon = { code: string; discount: number; label: string };
+
 export function CheckoutForm({
   subtotal,
   deliveryFee,
+  initialName = "",
+  initialPhone = "",
 }: {
   subtotal: number;
   deliveryFee: number;
+  initialName?: string;
+  initialPhone?: string;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>({
-    fullName: "",
-    phone: "",
+    fullName: initialName,
+    phone: initialPhone,
     houseNumber: "",
     street: "",
     landmark: "",
@@ -52,11 +58,38 @@ export function CheckoutForm({
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState<string[]>([]);
 
-  const total = subtotal + deliveryFee;
+  // Coupon
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
+  const [couponMsg, setCouponMsg] = useState<string | null>(null);
+  const [couponBusy, setCouponBusy] = useState(false);
+
+  const discount = coupon?.discount ?? 0;
+  const total = Math.max(0, subtotal - discount) + deliveryFee;
 
   function update(key: keyof FormState, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
-    setMissing((m) => m.filter((k) => k !== key)); // clear the red highlight as they type
+    setMissing((m) => m.filter((k) => k !== key));
+  }
+
+  async function applyCoupon() {
+    setCouponMsg(null);
+    setCouponBusy(true);
+    const res = await validateCoupon(couponInput, subtotal);
+    setCouponBusy(false);
+    if (!res.ok) {
+      setCoupon(null);
+      setCouponMsg(res.error);
+      return;
+    }
+    setCoupon({ code: res.code, discount: res.discount, label: res.label });
+    setCouponMsg(null);
+  }
+
+  function removeCoupon() {
+    setCoupon(null);
+    setCouponInput("");
+    setCouponMsg(null);
   }
 
   function captureLocation() {
@@ -96,6 +129,7 @@ export function CheckoutForm({
       notes,
       lat: coords?.lat ?? null,
       lng: coords?.lng ?? null,
+      couponCode: coupon?.code ?? null,
     };
     const res = await placeOrder(payload);
     setSubmitting(false);
@@ -190,10 +224,56 @@ export function CheckoutForm({
 
       <aside className="h-fit space-y-3 rounded-2xl border border-brown/10 bg-soft p-6 shadow-card">
         <h2 className="font-display text-xl text-coffee">Summary</h2>
+
+        {/* Coupon */}
+        {coupon ? (
+          <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-3 py-2">
+            <div>
+              <p className="text-sm font-semibold text-green-800">{coupon.code} applied</p>
+              <p className="text-xs text-green-700">{coupon.label}</p>
+            </div>
+            <button type="button" onClick={removeCoupon} className="text-xs font-medium text-red-600 hover:underline">
+              Remove
+            </button>
+          </div>
+        ) : (
+          <div>
+            <div className="flex gap-2">
+              <input
+                value={couponInput}
+                onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applyCoupon();
+                  }
+                }}
+                placeholder="Coupon code"
+                className="w-full rounded-xl border border-brown/20 bg-white px-3 py-2 text-sm uppercase outline-none focus:border-gold"
+              />
+              <button
+                type="button"
+                onClick={applyCoupon}
+                disabled={couponBusy || !couponInput.trim()}
+                className="rounded-xl border border-brown/25 px-4 text-sm font-medium text-brown hover:bg-brown/5 disabled:opacity-50"
+              >
+                {couponBusy ? "…" : "Apply"}
+              </button>
+            </div>
+            {couponMsg && <p className="mt-1.5 text-xs text-red-600">{couponMsg}</p>}
+          </div>
+        )}
+
         <div className="flex justify-between text-sm text-brown/80">
           <span>Subtotal</span>
           <span>{formatINR(subtotal)}</span>
         </div>
+        {discount > 0 && (
+          <div className="flex justify-between text-sm font-medium text-green-700">
+            <span>Discount</span>
+            <span>−{formatINR(discount)}</span>
+          </div>
+        )}
         <div className="flex justify-between text-sm text-brown/80">
           <span>Delivery fee</span>
           <span>{deliveryFee === 0 ? "Free" : formatINR(deliveryFee)}</span>
@@ -202,9 +282,7 @@ export function CheckoutForm({
           <span>Total</span>
           <span>{formatINR(total)}</span>
         </div>
-        <p className="rounded-lg bg-cream px-3 py-2 text-xs text-brown/70">
-          Payment: Cash on Delivery
-        </p>
+        <p className="rounded-lg bg-cream px-3 py-2 text-xs text-brown/70">Payment: Cash on Delivery</p>
         {error && <p className="text-sm font-medium text-red-600">{error}</p>}
         <button
           type="submit"

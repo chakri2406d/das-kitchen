@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { formatINR, ORDER_STATUS_LABEL, mapsNavUrl, cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import { formatINR, ORDER_STATUS_LABEL, mapsNavUrl, formatDateTime, cn } from "@/lib/utils";
 import type { OrderStatus } from "@/types/database";
 import { startDelivery, completeDelivery } from "./actions";
 
@@ -30,6 +31,7 @@ const STATUS_PILL: Partial<Record<OrderStatus, string>> = {
 };
 
 export function DeliveryOrderCard({ order }: { order: RiderOrder }) {
+  const router = useRouter();
   const [otp, setOtp] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -52,8 +54,12 @@ export function DeliveryOrderCard({ order }: { order: RiderOrder }) {
     setErr(null);
     startTransition(async () => {
       const res = await fn();
-      if (!res.ok) setErr(res.error ?? "Something went wrong.");
-      else if (res.message) setMsg(res.message);
+      if (!res.ok) {
+        setErr(res.error ?? "Something went wrong.");
+        return;
+      }
+      if (res.message) setMsg(res.message);
+      router.refresh(); // pull fresh data so the order moves out of "active"
     });
   }
 
@@ -62,7 +68,7 @@ export function DeliveryOrderCard({ order }: { order: RiderOrder }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-display text-lg text-coffee">#{order.order_number ?? order.id.slice(0, 8)}</p>
-          <p className="text-xs text-brown/50">{new Date(order.placed_at).toLocaleString("en-IN")}</p>
+          <p className="text-xs text-brown/50">{formatDateTime(order.placed_at)}</p>
         </div>
         <span
           className={cn(
