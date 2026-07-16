@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/menu", label: "Menu" },
   { href: "/admin/riders", label: "Riders" },
+  { href: "/admin/customers", label: "Customers" },
   { href: "/admin/coupons", label: "Coupons" },
   { href: "/admin/settings", label: "Settings" },
 ];

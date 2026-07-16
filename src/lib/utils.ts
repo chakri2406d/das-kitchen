@@ -63,6 +63,28 @@ export function istDayStartISO(now: Date = new Date()): string {
   return istRangeStartISO(1, now);
 }
 
+/** "2026-07-16" — today's date in India, for date inputs. */
+export function istDateStr(now: Date = new Date()): string {
+  return new Date(now.getTime() + IST_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/** "2026-07-16" + N days, still in India time. */
+export function istDateStrOffset(days: number, now: Date = new Date()): string {
+  return istDateStr(new Date(now.getTime() + days * 86_400_000));
+}
+
+/** Start of a given IST calendar date, as a UTC instant. */
+export function istDateStartISO(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d) - IST_OFFSET_MS).toISOString();
+}
+
+/** Start of the NEXT IST day — use with `.lt()` so the end date is included. */
+export function istDateEndExclusiveISO(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d) + 86_400_000 - IST_OFFSET_MS).toISOString();
+}
+
 /** Human-readable labels for order statuses (customer-facing wording). */
 export const ORDER_STATUS_LABEL: Record<string, string> = {
   pending: "Order placed",
