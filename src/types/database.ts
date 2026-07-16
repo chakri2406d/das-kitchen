@@ -15,7 +15,7 @@ export type OrderStatus =
   | "out_for_delivery"
   | "delivered"
   | "cancelled";
-export type PaymentMethod = "cod" | "razorpay";
+export type PaymentMethod = "cod" | "razorpay" | "upi";
 export type PaymentStatus = "pending" | "paid" | "failed" | "refunded";
 export type FoodType = "veg" | "non_veg" | "egg";
 export type BusinessStatus = "open" | "closed" | "busy";
@@ -145,6 +145,8 @@ export type Order = {
   placed_at: string;
   accepted_at: string | null;
   delivered_at: string | null;
+  payment_confirmed_at: string | null;
+  payment_confirmed_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -204,6 +206,8 @@ export type DeliveryTracking = {
 
 export type BusinessSettings = {
   id: number;
+  upi_id: string | null;
+  upi_name: string | null;
   status: BusinessStatus;
   is_accepting_orders: boolean;
   min_order_amount: number | null;

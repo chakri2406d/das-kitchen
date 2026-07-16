@@ -24,7 +24,7 @@ export default async function DeliveryDashboard() {
   const columns =
     "id, order_number, status, total, payment_method, payment_status, placed_at, customer_lat, customer_lng, delivery_notes, delivery_address, order_items(item_name, quantity)";
 
-  const [{ data: activeRows }, { data: doneRows }] = await Promise.all([
+  const [{ data: activeRows }, { data: doneRows }, { data: settings }] = await Promise.all([
     supabase
       .from("orders")
       .select(columns)
@@ -38,10 +38,13 @@ export default async function DeliveryDashboard() {
       .eq("status", "delivered")
       .gte("delivered_at", todayStart)
       .order("delivered_at", { ascending: false }),
+    supabase.from("business_settings").select("upi_id, upi_name").eq("id", 1).single(),
   ]);
 
   const orders = (activeRows ?? []) as unknown as RiderOrder[];
   const done = (doneRows ?? []) as DoneOrder[];
+  const upiId = settings?.upi_id ?? null;
+  const upiName = settings?.upi_name ?? "Das Kitchen";
   const collectedToday = done.reduce((s, o) => s + Number(o.total ?? 0), 0);
 
   // Ping GPS for whichever order is currently out for delivery.
@@ -74,7 +77,7 @@ export default async function DeliveryDashboard() {
             No deliveries assigned right now. New ones appear here once the kitchen assigns you an order.
           </p>
         ) : (
-          orders.map((o) => <DeliveryOrderCard key={o.id} order={o} />)
+          orders.map((o) => <DeliveryOrderCard key={o.id} order={o} upiId={upiId} upiName={upiName} />)
         )}
       </div>
 

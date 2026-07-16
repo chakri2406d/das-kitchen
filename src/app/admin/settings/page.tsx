@@ -10,6 +10,8 @@ export default async function AdminSettingsPage() {
 
   const settings = (data ?? {
     id: 1,
+    upi_id: null,
+    upi_name: null,
     status: "open",
     is_accepting_orders: true,
     min_order_amount: 0,

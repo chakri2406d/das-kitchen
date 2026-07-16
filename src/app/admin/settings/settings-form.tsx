@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { osmEmbedUrl } from "@/lib/geo";
+import { looksLikeUpiId } from "@/lib/upi";
+import { UpiQr } from "@/components/payments/upi-qr";
 import type { BusinessSettings, BusinessStatus } from "@/types/database";
 import { setBusinessStatus, updateSettings } from "./actions";
 
@@ -39,6 +41,8 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
     fssai_license: settings.fssai_license ?? "",
     open_time: settings.open_time ?? "",
     close_time: settings.close_time ?? "",
+    upi_id: settings.upi_id ?? "",
+    upi_name: settings.upi_name ?? "",
   });
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -78,6 +82,8 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
         fssai_license: form.fssai_license,
         open_time: form.open_time,
         close_time: form.close_time,
+        upi_id: form.upi_id,
+        upi_name: form.upi_name,
       });
       setMsg(res.ok ? "Settings saved." : res.error);
     });
@@ -116,6 +122,65 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
           />
           Accepting online orders
         </label>
+      </section>
+
+      {/* Online payments — UPI QR */}
+      <section className="rounded-2xl border border-brown/10 bg-soft p-6 shadow-card">
+        <h2 className="font-display text-xl text-coffee">Online payments (UPI)</h2>
+        <p className="mt-1 text-sm text-brown/60">
+          Add your UPI ID and customers can scan a QR to pay you directly — no gateway, no fees, no
+          KYC. Money reaches your account instantly. Leave blank to stay cash-only.
+        </p>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <span className={labelCls}>UPI ID</span>
+            <input
+              className={field}
+              placeholder="daskitchen@okaxis"
+              value={form.upi_id}
+              onChange={(e) => set("upi_id", e.target.value)}
+            />
+            {form.upi_id.trim() !== "" && !looksLikeUpiId(form.upi_id) && (
+              <p className="mt-1 text-xs text-red-600">
+                That doesn&apos;t look like a UPI ID — it should look like name@bank.
+              </p>
+            )}
+          </div>
+          <div>
+            <span className={labelCls}>Payee name (shown in their UPI app)</span>
+            <input
+              className={field}
+              placeholder="Das Kitchen"
+              value={form.upi_name}
+              onChange={(e) => set("upi_name", e.target.value)}
+            />
+          </div>
+        </div>
+
+        {looksLikeUpiId(form.upi_id) && (
+          <div className="mt-5 rounded-xl border border-brown/15 bg-white p-5">
+            <p className="mb-3 text-center text-xs font-semibold uppercase tracking-wide text-brown/50">
+              Preview — scan this to check it opens your account
+            </p>
+            <UpiQr
+              upiId={form.upi_id.trim()}
+              payeeName={form.upi_name.trim() || "Das Kitchen"}
+              amount={1}
+              note="Das Kitchen test"
+              size={168}
+              compact
+            />
+            <p className="mt-3 text-center text-xs text-brown/55">
+              Test with ₹1 before going live. Remember to press Save settings.
+            </p>
+          </div>
+        )}
+
+        <p className="mt-4 rounded-lg bg-cream px-3 py-2 text-xs text-brown/70">
+          <strong>Note:</strong> UPI has no way to tell this website that money arrived. Your rider
+          confirms at the door, or you confirm in Orders. Nothing is marked paid automatically.
+        </p>
       </section>
 
       {/* Kitchen location — powers distance + delivery radius */}

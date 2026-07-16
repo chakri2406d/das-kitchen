@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatINR, ORDER_STATUS_LABEL, mapsNavUrl, formatDateTime, cn } from "@/lib/utils";
-import type { OrderStatus } from "@/types/database";
+import type { OrderStatus, PaymentMethod } from "@/types/database";
+import { UpiQr } from "@/components/payments/upi-qr";
 import { startDelivery, completeDelivery } from "./actions";
 
 export type RiderOrderItem = { item_name: string; quantity: number };
@@ -30,9 +31,20 @@ const STATUS_PILL: Partial<Record<OrderStatus, string>> = {
   delivered: "bg-green-100 text-green-800",
 };
 
-export function DeliveryOrderCard({ order }: { order: RiderOrder }) {
+export function DeliveryOrderCard({
+  order,
+  upiId = null,
+  upiName = "Das Kitchen",
+}: {
+  order: RiderOrder;
+  upiId?: string | null;
+  upiName?: string;
+}) {
   const router = useRouter();
   const [otp, setOtp] = useState("");
+  // Rider must say how it was paid BEFORE the OTP — that's the order of events
+  // at the door, and it's what keeps the cash/online split honest.
+  const [paidBy, setPaidBy] = useState<PaymentMethod | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -147,25 +159,85 @@ export function DeliveryOrderCard({ order }: { order: RiderOrder }) {
       {order.status === "out_for_delivery" && (
         <div className="mt-4 rounded-xl border border-gold/40 bg-gold-soft/20 p-4">
           <p className="text-sm font-medium text-coffee">Finish the delivery</p>
-          <p className="mt-1 text-xs text-brown/70">
-            Ask the customer for the 4-digit OTP shown on their order screen.
+
+          {/* Step 1 — how did they pay? */}
+          <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-brown/50">
+            Step 1 · How did they pay?
           </p>
-          <div className="mt-3 flex gap-2">
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPaidBy("cod")}
+              className={cn(
+                "flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
+                paidBy === "cod" ? "bg-coffee text-cream" : "bg-white text-brown hover:bg-brown/5"
+              )}
+            >
+              Cash · {formatINR(Number(order.total))}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaidBy("upi")}
+              disabled={!upiId}
+              title={upiId ? undefined : "Add your UPI ID in Admin > Settings first"}
+              className={cn(
+                "flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                paidBy === "upi" ? "bg-coffee text-cream" : "bg-white text-brown hover:bg-brown/5"
+              )}
+            >
+              Paid online
+            </button>
+          </div>
+
+          {/* Show the QR so they can pay right here */}
+          {paidBy === "upi" && upiId && (
+            <div className="mt-3 rounded-xl border border-brown/15 bg-white p-4">
+              <p className="mb-3 text-center text-xs text-brown/60">
+                Let them scan this, then confirm once you see the payment.
+              </p>
+              <UpiQr
+                upiId={upiId}
+                payeeName={upiName}
+                amount={Number(order.total)}
+                note={`Das Kitchen ${order.order_number ?? ""}`.trim()}
+                size={168}
+                compact
+              />
+            </div>
+          )}
+          {paidBy === "upi" && !upiId && (
+            <p className="mt-2 text-xs text-red-600">
+              No UPI ID set yet — add one in Admin &gt; Settings.
+            </p>
+          )}
+
+          {/* Step 2 — OTP */}
+          <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-brown/50">
+            Step 2 · Enter their 4-digit OTP
+          </p>
+          <p className="mt-1 text-xs text-brown/70">
+            Ask the customer for the OTP shown on their order screen.
+          </p>
+          <div className="mt-2 flex gap-2">
             <input
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 4))}
               inputMode="numeric"
               placeholder="1234"
-              className="w-28 rounded-xl border border-brown/20 bg-white px-4 py-2 text-center text-lg font-bold tracking-widest outline-none focus:border-gold"
+              disabled={!paidBy}
+              className="w-28 rounded-xl border border-brown/20 bg-white px-4 py-2 text-center text-lg font-bold tracking-widest outline-none focus:border-gold disabled:bg-brown/5"
             />
             <button
-              onClick={() => run(() => completeDelivery(order.id, otp))}
-              disabled={pending || otp.length < 4}
+              onClick={() => paidBy && run(() => completeDelivery(order.id, otp, paidBy))}
+              disabled={pending || !paidBy || otp.length < 4}
               className="flex-1 rounded-full bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
             >
               {pending ? "Confirming…" : "Confirm delivered"}
             </button>
           </div>
+          {!paidBy && (
+            <p className="mt-2 text-xs text-brown/55">Choose cash or online first.</p>
+          )}
         </div>
       )}
 

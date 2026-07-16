@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { RiderStatus } from "@/types/database";
+import type { RiderStatus, PaymentMethod } from "@/types/database";
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
 
@@ -65,9 +65,17 @@ export async function startDelivery(orderId: string): Promise<ActionResult> {
  * Completes a delivery. The rider must type the 4-digit OTP the customer reads
  * from their order screen — proof the food actually reached them.
  */
-export async function completeDelivery(orderId: string, otp: string): Promise<ActionResult> {
+export async function completeDelivery(
+  orderId: string,
+  otp: string,
+  paidBy: PaymentMethod
+): Promise<ActionResult> {
   const auth = await requireRider();
   if (!auth.ok) return { ok: false, error: auth.error };
+
+  if (paidBy !== "cod" && paidBy !== "upi") {
+    return { ok: false, error: "Select how the customer paid — cash or online." };
+  }
 
   const entered = otp.trim();
   if (!entered) return { ok: false, error: "Enter the 4-digit OTP from the customer." };
@@ -92,13 +100,18 @@ export async function completeDelivery(orderId: string, otp: string): Promise<Ac
     return { ok: false, error: "Wrong OTP. Ask the customer to read it from their order screen." };
   }
 
+  // The rider tells us how it was ACTUALLY paid — that's what gets recorded, so
+  // the online-vs-cash split in reports reflects reality, not what was picked at
+  // checkout. A human confirming is the only way: UPI never calls us back.
   const { data: updated, error } = await auth.supabase
     .from("orders")
     .update({
       status: "delivered",
       delivered_at: new Date().toISOString(),
-      // Cash collected on handover.
-      ...(order.payment_method === "cod" ? { payment_status: "paid" as const } : {}),
+      payment_method: paidBy,
+      payment_status: "paid",
+      payment_confirmed_at: new Date().toISOString(),
+      payment_confirmed_by: auth.userId,
     })
     .eq("id", orderId)
     .eq("delivery_partner_id", auth.userId)
@@ -121,5 +134,5 @@ export async function completeDelivery(orderId: string, otp: string): Promise<Ac
     .eq("id", auth.userId);
 
   revalidate();
-  return { ok: true, message: "Delivered. Nice work!" };
+  return { ok: true, message: paidBy === "upi" ? "Delivered — marked as paid online." : "Delivered — cash collected." };
 }
