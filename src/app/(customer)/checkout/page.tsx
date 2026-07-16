@@ -17,7 +17,7 @@ export default async function CheckoutPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/checkout");
 
-  const [{ data: cart }, { data: settings }, { data: profile }] = await Promise.all([
+  const [{ data: cart }, { data: settings }, { data: profile }, { data: saved }] = await Promise.all([
     supabase.from("cart_items").select("quantity, menu_items(price)").eq("user_id", user.id),
     supabase
       .from("business_settings")
@@ -25,6 +25,12 @@ export default async function CheckoutPage() {
       .eq("id", 1)
       .single(),
     supabase.from("profiles").select("full_name, phone").eq("id", user.id).single(),
+    supabase
+      .from("addresses")
+      .select("id, label, house_number, street, landmark, area, city, pincode")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(5),
   ]);
 
   const items = ((cart ?? []) as unknown as CartRow[]).filter((r) => r.menu_items);
@@ -77,6 +83,7 @@ export default async function CheckoutPage() {
             initialPhone={profile?.phone ?? ""}
             upiId={settings?.upi_id ?? null}
             upiName={settings?.upi_name ?? "Das Kitchen"}
+            savedAddresses={saved ?? []}
           />
         )}
       </div>

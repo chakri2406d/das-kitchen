@@ -31,6 +31,17 @@ type FormState = {
 
 type AppliedCoupon = { code: string; discount: number; label: string };
 
+export type SavedAddress = {
+  id: string;
+  label: string | null;
+  house_number: string | null;
+  street: string | null;
+  landmark: string | null;
+  area: string | null;
+  city: string | null;
+  pincode: string | null;
+};
+
 export function CheckoutForm({
   subtotal,
   deliveryFee,
@@ -38,6 +49,7 @@ export function CheckoutForm({
   initialPhone = "",
   upiId = null,
   upiName = "Das Kitchen",
+  savedAddresses = [],
 }: {
   subtotal: number;
   deliveryFee: number;
@@ -45,6 +57,7 @@ export function CheckoutForm({
   initialPhone?: string;
   upiId?: string | null;
   upiName?: string;
+  savedAddresses?: SavedAddress[];
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>({
@@ -158,6 +171,42 @@ export function CheckoutForm({
     <form onSubmit={submit} className="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem]">
       <div className="space-y-4 rounded-2xl border border-brown/10 bg-soft p-6 shadow-card">
         <h2 className="font-display text-xl text-coffee">Delivery details</h2>
+
+        {/* Saved addresses — one tap instead of retyping everything */}
+        {savedAddresses.length > 0 && (
+          <div className="rounded-xl border border-brown/15 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brown/50">
+              Deliver to a saved address
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {savedAddresses.map((a) => {
+                const line = [a.house_number, a.street, a.area, a.pincode].filter(Boolean).join(", ");
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => {
+                      setForm((prev) => ({
+                        ...prev,
+                        houseNumber: a.house_number ?? "",
+                        street: a.street ?? "",
+                        landmark: a.landmark ?? "",
+                        area: a.area ?? "",
+                        city: a.city ?? "",
+                        pincode: a.pincode ?? "",
+                      }));
+                      setMissing([]);
+                    }}
+                    className="max-w-full rounded-xl border border-brown/20 px-3 py-2 text-left text-xs text-brown transition-colors hover:border-gold hover:bg-gold-soft/20"
+                  >
+                    <span className="block font-semibold text-coffee">{a.label || "Saved"}</span>
+                    <span className="block truncate text-brown/65">{line}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-2">
           {FIELDS.map((f) => {

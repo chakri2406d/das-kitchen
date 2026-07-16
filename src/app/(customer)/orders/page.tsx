@@ -5,6 +5,7 @@ import { PlacedCelebration } from "@/components/orders/placed-celebration";
 import { createClient } from "@/lib/supabase/server";
 import { formatINR, ORDER_STATUS_LABEL, formatDateTime } from "@/lib/utils";
 import { UpiQr } from "@/components/payments/upi-qr";
+import { ReorderButton } from "@/components/orders/reorder-button";
 
 export const dynamic = "force-dynamic";
 
@@ -156,12 +157,20 @@ export default async function OrdersPage({
                     </div>
                   )}
 
-                  <div className="mt-3 flex items-center justify-between border-t border-brown/10 pt-3">
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-brown/10 pt-3">
                     <span className="text-xs uppercase text-brown/50">
-                      {o.payment_method === "cod" ? "Cash on Delivery" : o.payment_method}
+                      {o.payment_method === "cod" ? "Cash on Delivery" : "Online (UPI)"}
                     </span>
                     <span className="font-semibold text-coffee">{formatINR(Number(o.total))}</span>
                   </div>
+
+                  {/* Ordering the same thing again is the most common thing a
+                      happy customer wants to do — make it one tap. */}
+                  {!live && (
+                    <div className="mt-3">
+                      <ReorderButton orderId={o.id} />
+                    </div>
+                  )}
                 </article>
               );
             })}

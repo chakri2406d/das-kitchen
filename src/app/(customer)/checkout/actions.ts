@@ -263,6 +263,32 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
   const { error: itemsErr } = await supabase.from("order_items").insert(orderItems);
   if (itemsErr) return { ok: false, error: itemsErr.message };
 
+  // Remember this address so they never type it twice. Skip if we already have
+  // the same one — nobody wants an address book full of duplicates.
+  const { data: known } = await supabase
+    .from("addresses")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("house_number", input.houseNumber)
+    .eq("area", input.area)
+    .eq("pincode", input.pincode)
+    .maybeSingle();
+
+  if (!known) {
+    await supabase.from("addresses").insert({
+      user_id: user.id,
+      label: input.area || "Home",
+      house_number: input.houseNumber || null,
+      street: input.street || null,
+      landmark: input.landmark || null,
+      area: input.area || null,
+      city: input.city || null,
+      pincode: input.pincode || null,
+      latitude: input.lat,
+      longitude: input.lng,
+    });
+  }
+
   // Powers "Best Sellers" / specials ordering.
   await supabase.rpc("bump_order_counts", { p_order_id: order.id });
 
