@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { NewOrderAlert } from "@/components/admin/new-order-alert";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { getCurrentProfile } from "@/lib/supabase/server";
 
@@ -18,7 +19,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Logo withWordmark />
             <span className="shrink-0 rounded-full bg-coffee px-3 py-1 text-xs font-semibold text-cream">Admin</span>
           </div>
-          <SignOutButton />
+          <div className="flex shrink-0 items-center gap-2">
+            <NewOrderAlert />
+            <SignOutButton />
+          </div>
         </div>
         <div className="mx-auto max-w-6xl px-4 pb-3 sm:px-6">
           <AdminNav />
