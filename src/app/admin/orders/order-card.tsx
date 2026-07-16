@@ -4,8 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatINR, ORDER_STATUS_LABEL, formatDateTime, cn } from "@/lib/utils";
 import { formatKm, directionsUrl } from "@/lib/geo";
-import type { OrderStatus } from "@/types/database";
-import { updateOrderStatus, assignRider } from "./actions";
+import type { OrderStatus, PaymentMethod } from "@/types/database";
+import { updateOrderStatus, assignRider, setPayment } from "./actions";
 
 export type AdminOrderItem = { item_name: string; quantity: number };
 export type AdminOrder = {
@@ -68,6 +68,9 @@ export function OrderCard({
   const done = order.status === "delivered" || order.status === "cancelled";
   const items = order.order_items ?? [];
   const tooFar = distanceKm != null && radiusKm != null && distanceKm > radiusKm;
+  const paid = order.payment_status === "paid";
+  const payLabel =
+    order.payment_method === "cod" ? "Cash" : order.payment_method === "upi" ? "Online (UPI)" : order.payment_method;
 
   function act(fn: () => Promise<{ ok: boolean; error?: string }>) {
     setMsg(null);
@@ -163,9 +166,6 @@ export function OrderCard({
         )}
         {order.delivery_notes && <p className="mt-1 text-brown/60">Note: {order.delivery_notes}</p>}
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <span className="uppercase text-brown/50">
-            {order.payment_method === "cod" ? "Cash on Delivery" : order.payment_method} · {order.payment_status}
-          </span>
           {order.delivery_otp && (
             <span className="rounded-full bg-cream px-2 py-0.5 font-semibold text-coffee">Delivery OTP {order.delivery_otp}</span>
           )}
@@ -173,6 +173,72 @@ export function OrderCard({
             <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-gold-dark hover:underline">
               Open location on map ↗
             </a>
+          )}
+        </div>
+      </div>
+
+      {/* Payment — you have the final word, since UPI never tells us the money landed */}
+      <div className="mt-3 rounded-xl border border-brown/10 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brown/50">Payment</p>
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+              paid ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-900"
+            )}
+          >
+            {paid ? `Paid · ${payLabel}` : `Unpaid · chose ${payLabel}`}
+          </span>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {!paid ? (
+            <>
+              <span className="text-xs text-brown/60">Mark as received:</span>
+              <button
+                onClick={() => act(() => setPayment(order.id, "cod", "paid"))}
+                disabled={pending}
+                className="rounded-full bg-coffee px-3 py-1.5 text-xs font-semibold text-cream hover:bg-brown disabled:opacity-60"
+              >
+                Cash
+              </button>
+              <button
+                onClick={() => act(() => setPayment(order.id, "upi", "paid"))}
+                disabled={pending}
+                className="rounded-full bg-coffee px-3 py-1.5 text-xs font-semibold text-cream hover:bg-brown disabled:opacity-60"
+              >
+                Online (UPI)
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="text-xs text-brown/60">Wrong? Change it:</span>
+              {order.payment_method !== "cod" && (
+                <button
+                  onClick={() => act(() => setPayment(order.id, "cod", "paid"))}
+                  disabled={pending}
+                  className="rounded-full border border-brown/25 px-3 py-1.5 text-xs font-medium text-brown hover:bg-brown/5 disabled:opacity-60"
+                >
+                  Was cash
+                </button>
+              )}
+              {order.payment_method !== "upi" && (
+                <button
+                  onClick={() => act(() => setPayment(order.id, "upi", "paid"))}
+                  disabled={pending}
+                  className="rounded-full border border-brown/25 px-3 py-1.5 text-xs font-medium text-brown hover:bg-brown/5 disabled:opacity-60"
+                >
+                  Was online
+                </button>
+              )}
+              <button
+                onClick={() => act(() => setPayment(order.id, order.payment_method as PaymentMethod, "pending"))}
+                disabled={pending}
+                className="rounded-full px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+              >
+                Mark unpaid
+              </button>
+            </>
           )}
         </div>
       </div>

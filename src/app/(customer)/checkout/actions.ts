@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { distanceKm } from "@/lib/geo";
+import type { PaymentMethod } from "@/types/database";
 
 export type CheckoutInput = {
   fullName: string;
@@ -17,6 +18,7 @@ export type CheckoutInput = {
   lat: number | null;
   lng: number | null;
   couponCode: string | null;
+  paymentMethod: PaymentMethod; // what they CHOSE; the rider confirms what actually happened
 };
 
 export type PlaceOrderResult =
@@ -146,7 +148,7 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
   // ---- Kitchen rules (enforced server-side, never trust the browser) --------
   const { data: settings } = await supabase
     .from("business_settings")
-    .select("status, is_accepting_orders, min_order_amount, delivery_fee, delivery_radius_km, kitchen_lat, kitchen_lng")
+    .select("status, is_accepting_orders, min_order_amount, delivery_fee, delivery_radius_km, kitchen_lat, kitchen_lng, upi_id")
     .eq("id", 1)
     .single();
 
@@ -192,6 +194,13 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
     couponId = res.couponId;
   }
 
+  // Only allow "pay online" if a UPI ID actually exists to pay into.
+  const wantsUpi = input.paymentMethod === "upi";
+  if (wantsUpi && !settings?.upi_id) {
+    return { ok: false, error: "Online payment isn't set up yet. Please choose Cash on Delivery." };
+  }
+  const paymentMethod: PaymentMethod = wantsUpi ? "upi" : "cod";
+
   const total = Math.max(0, subtotal - discount) + deliveryFee;
   const orderNumber = "DK" + Date.now().toString().slice(-8);
   // Generated here rather than relying on the DB trigger — a missing OTP
@@ -225,7 +234,8 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
       delivery_fee: deliveryFee,
       total,
       coupon_id: couponId,
-      payment_method: "cod",
+      payment_method: paymentMethod,
+      // Always 'pending' — a human confirms the money arrived. UPI never calls back.
       payment_status: "pending",
       delivery_otp: deliveryOtp,
       delivery_notes: input.notes || null,

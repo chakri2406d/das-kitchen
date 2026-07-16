@@ -4,6 +4,7 @@ import { OrderTracker } from "@/components/orders/order-tracker";
 import { PlacedCelebration } from "@/components/orders/placed-celebration";
 import { createClient } from "@/lib/supabase/server";
 import { formatINR, ORDER_STATUS_LABEL, formatDateTime } from "@/lib/utils";
+import { UpiQr } from "@/components/payments/upi-qr";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ type OrderRow = {
   payment_method: string;
   placed_at: string;
   delivery_otp: string | null;
+  payment_status: string;
   customer_lat: number | null;
   customer_lng: number | null;
   delivery_partner_id: string | null;
@@ -37,11 +39,19 @@ export default async function OrdersPage({
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { data: settings } = await supabase
+    .from("business_settings")
+    .select("upi_id, upi_name")
+    .eq("id", 1)
+    .single();
+  const upiId = settings?.upi_id ?? null;
+  const upiName = settings?.upi_name ?? "Das Kitchen";
+
   const { data } = user
     ? await supabase
         .from("orders")
         .select(
-          "id, order_number, status, total, payment_method, placed_at, delivery_otp, customer_lat, customer_lng, delivery_partner_id, order_items(item_name, quantity)"
+          "id, order_number, status, total, payment_method, payment_status, placed_at, delivery_otp, customer_lat, customer_lng, delivery_partner_id, order_items(item_name, quantity)"
         )
         .eq("customer_id", user.id)
         .order("placed_at", { ascending: false })
@@ -103,6 +113,28 @@ export default async function OrdersPage({
                       customerLng={o.customer_lng}
                       rider={o.delivery_partner_id ? riderMap.get(o.delivery_partner_id) ?? null : null}
                     />
+                  )}
+
+                  {/* Still owe money? Offer the QR right here. */}
+                  {live && upiId && o.payment_status !== "paid" && (
+                    <div className="mt-4 rounded-xl border border-brown/10 bg-white p-4">
+                      <p className="text-center text-xs font-semibold uppercase tracking-wide text-brown/50">
+                        Pay online (optional)
+                      </p>
+                      <div className="mt-3">
+                        <UpiQr
+                          upiId={upiId}
+                          payeeName={upiName}
+                          amount={Number(o.total)}
+                          note={`Das Kitchen ${o.order_number ?? ""}`.trim()}
+                          size={150}
+                          compact
+                        />
+                      </div>
+                      <p className="mt-3 text-center text-xs text-brown/60">
+                        Or just pay cash when it arrives.
+                      </p>
+                    </div>
                   )}
 
                   {/* Delivery OTP — read this to the rider on handover. */}

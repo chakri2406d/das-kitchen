@@ -21,7 +21,7 @@ export default async function CheckoutPage() {
     supabase.from("cart_items").select("quantity, menu_items(price)").eq("user_id", user.id),
     supabase
       .from("business_settings")
-      .select("status, is_accepting_orders, min_order_amount, delivery_fee")
+      .select("status, is_accepting_orders, min_order_amount, delivery_fee, upi_id, upi_name")
       .eq("id", 1)
       .single(),
     supabase.from("profiles").select("full_name, phone").eq("id", user.id).single(),
@@ -75,6 +75,8 @@ export default async function CheckoutPage() {
             deliveryFee={deliveryFee}
             initialName={profile?.full_name ?? ""}
             initialPhone={profile?.phone ?? ""}
+            upiId={settings?.upi_id ?? null}
+            upiName={settings?.upi_name ?? "Das Kitchen"}
           />
         )}
       </div>

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { placeOrder, validateCoupon, type CheckoutInput } from "@/app/(customer)/checkout/actions";
 import { formatINR, cn } from "@/lib/utils";
+import type { PaymentMethod } from "@/types/database";
+import { UpiQr } from "@/components/payments/upi-qr";
 
 const FIELDS: { key: keyof FormState; label: string; required?: boolean }[] = [
   { key: "fullName", label: "Full name", required: true },
@@ -34,11 +36,15 @@ export function CheckoutForm({
   deliveryFee,
   initialName = "",
   initialPhone = "",
+  upiId = null,
+  upiName = "Das Kitchen",
 }: {
   subtotal: number;
   deliveryFee: number;
   initialName?: string;
   initialPhone?: string;
+  upiId?: string | null;
+  upiName?: string;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>({
@@ -57,6 +63,7 @@ export function CheckoutForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState<string[]>([]);
+  const [payBy, setPayBy] = useState<PaymentMethod>("cod");
 
   // Coupon
   const [couponInput, setCouponInput] = useState("");
@@ -130,6 +137,7 @@ export function CheckoutForm({
       lat: coords?.lat ?? null,
       lng: coords?.lng ?? null,
       couponCode: coupon?.code ?? null,
+      paymentMethod: payBy,
     };
     const res = await placeOrder(payload);
     setSubmitting(false);
@@ -282,7 +290,50 @@ export function CheckoutForm({
           <span>Total</span>
           <span>{formatINR(total)}</span>
         </div>
-        <p className="rounded-lg bg-cream px-3 py-2 text-xs text-brown/70">Payment: Cash on Delivery</p>
+        {/* Payment choice */}
+        <div className="border-t border-brown/10 pt-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brown/50">Payment</p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPayBy("cod")}
+              className={cn(
+                "flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors",
+                payBy === "cod" ? "bg-coffee text-cream" : "bg-cream text-brown hover:bg-brown/10"
+              )}
+            >
+              Cash on Delivery
+            </button>
+            <button
+              type="button"
+              onClick={() => setPayBy("upi")}
+              disabled={!upiId}
+              title={upiId ? undefined : "Online payment isn't set up yet"}
+              className={cn(
+                "flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                payBy === "upi" ? "bg-coffee text-cream" : "bg-cream text-brown hover:bg-brown/10"
+              )}
+            >
+              Pay online (UPI)
+            </button>
+          </div>
+
+          {payBy === "upi" && upiId && (
+            <div className="mt-3 rounded-xl border border-gold/40 bg-gold-soft/20 p-4">
+              <UpiQr
+                upiId={upiId}
+                payeeName={upiName}
+                amount={total}
+                note="Das Kitchen order"
+                size={150}
+                compact
+              />
+              <p className="mt-3 text-center text-xs text-brown/65">
+                Scan now or pay when it arrives — your rider will confirm either way.
+              </p>
+            </div>
+          )}
+        </div>
         {error && <p className="text-sm font-medium text-red-600">{error}</p>}
         <button
           type="submit"
