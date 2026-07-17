@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { Navbar } from "@/components/layout/navbar";
-import { MenuCard } from "@/components/menu/menu-card";
+import { MenuBrowser, type MenuSection } from "@/components/menu/menu-browser";
 import { createClient } from "@/lib/supabase/server";
 import { groupMenuItems } from "@/lib/menu";
 import type { Category, MenuItem } from "@/types/database";
@@ -24,9 +23,26 @@ export default async function MenuPage() {
   const menu = (items ?? []) as MenuItem[];
   const userId = auth.user?.id ?? null;
 
-  // Only show categories that actually have items.
-  const sections = cats
-    .map((cat) => ({ cat, groups: groupMenuItems(menu.filter((m) => m.category_id === cat.id)) }))
+  // What's already in this customer's cart, so each card opens showing the real
+  // quantity instead of a bare "Add".
+  const cartQty: Record<string, number> = {};
+  if (userId) {
+    const { data: cart } = await supabase
+      .from("cart_items")
+      .select("menu_item_id, quantity")
+      .eq("user_id", userId);
+    (cart ?? []).forEach((r) => {
+      cartQty[r.menu_item_id] = r.quantity;
+    });
+  }
+
+  // Only show categories that actually have dishes.
+  const sections: MenuSection[] = cats
+    .map((cat) => ({
+      id: cat.id,
+      name: cat.name,
+      groups: groupMenuItems(menu.filter((m) => m.category_id === cat.id)),
+    }))
     .filter((s) => s.groups.length > 0);
 
   return (
@@ -38,37 +54,13 @@ export default async function MenuPage() {
           <p className="mt-2 text-brown/70">Freshly made, every single day.</p>
         </div>
 
-        {sections.length === 0 && (
+        {sections.length === 0 ? (
           <p className="mt-10 rounded-xl border border-dashed border-brown/20 p-8 text-center text-brown/60">
             No dishes yet. Add items from the admin dashboard.
           </p>
+        ) : (
+          <MenuBrowser sections={sections} userId={userId} cartQty={cartQty} />
         )}
-
-        {/* Category quick-nav */}
-        {sections.length > 1 && (
-          <div className="sticky top-16 z-30 -mx-4 mt-6 flex gap-2 overflow-x-auto bg-cream/85 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-full sm:px-3">
-            {sections.map(({ cat }) => (
-              <Link
-                key={cat.id}
-                href={`#cat-${cat.id}`}
-                className="whitespace-nowrap rounded-full bg-brown/5 px-4 py-1.5 text-sm font-medium text-brown transition-colors hover:bg-gold-soft/60 hover:text-coffee"
-              >
-                {cat.name}
-              </Link>
-            ))}
-          </div>
-        )}
-
-        {sections.map(({ cat, groups }) => (
-          <section key={cat.id} id={`cat-${cat.id}`} className="mt-10 scroll-mt-32">
-            <h2 className="font-display text-2xl text-coffee">{cat.name}</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {groups.map((group, i) => (
-                <MenuCard key={group.key} group={group} userId={userId} index={i} />
-              ))}
-            </div>
-          </section>
-        ))}
       </div>
     </main>
   );

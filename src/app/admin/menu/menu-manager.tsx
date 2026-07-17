@@ -5,6 +5,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { formatINR, cn } from "@/lib/utils";
 import type { Category, FoodType, MenuItem } from "@/types/database";
+import { compressImage, formatBytes } from "@/lib/image";
 import {
   saveMenuItem,
   deleteMenuItem,
@@ -68,6 +69,7 @@ export function MenuManager({ categories, items }: { categories: Category[]; ite
   const [newCategory, setNewCategory] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [imgNote, setImgNote] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function run(fn: () => Promise<{ ok: boolean; error?: string }>, okMsg?: string) {
@@ -85,10 +87,32 @@ export function MenuManager({ categories, items }: { categories: Category[]; ite
 
   async function uploadImage(file: File) {
     setMsg(null);
+    setImgNote(null);
     setUploading(true);
-    const ext = file.name.split(".").pop() ?? "jpg";
+
+    let payload: Blob = file;
+    let ext = file.name.split(".").pop() ?? "jpg";
+    let contentType = file.type || "image/jpeg";
+
+    try {
+      // Shrink first — a raw phone photo would eat your bandwidth alive.
+      const out = await compressImage(file, { maxWidth: 1200, maxBytes: 200 * 1024 });
+      payload = out.blob;
+      ext = out.ext;
+      contentType = out.type;
+      setImgNote(
+        `Optimised: ${formatBytes(out.beforeBytes)} → ${formatBytes(out.afterBytes)} (${out.width}px wide)`
+      );
+    } catch {
+      // Compression failed (odd format?) — upload the original rather than block.
+      setImgNote("Couldn't optimise this one — uploading the original.");
+    }
+
     const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, { upsert: true });
+    const { error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(path, payload, { upsert: true, contentType, cacheControl: "31536000" });
+
     if (error) {
       setUploading(false);
       setMsg(`Image upload failed: ${error.message}. Create a public Storage bucket named "${STORAGE_BUCKET}".`);
@@ -232,8 +256,12 @@ export function MenuManager({ categories, items }: { categories: Category[]; ite
                   onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0])}
                   className="text-sm text-brown/70"
                 />
-                {uploading && <span className="text-sm text-brown/60">Uploading…</span>}
+                {uploading && <span className="text-sm text-brown/60">Optimising…</span>}
               </div>
+              {imgNote && <p className="mt-1.5 text-xs text-green-700">{imgNote}</p>}
+              <p className="mt-1 text-xs text-brown/50">
+                Photos are shrunk automatically — upload straight from your phone, no editing needed.
+              </p>
             </div>
             <label className="flex items-center gap-2 text-sm text-brown">
               <input type="checkbox" checked={draft.is_available} onChange={(e) => set("is_available", e.target.checked)} className="h-4 w-4 accent-gold" />

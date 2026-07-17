@@ -46,3 +46,15 @@
   animation-timing-function: ease-in;
   animation-fill-mode: both;
 }
+
+/* Top navigation progress bar */
+@keyframes nav-progress {
+  0%   { width: 0%; }
+  25%  { width: 45%; }
+  60%  { width: 75%; }
+  85%  { width: 90%; }
+  100% { width: 96%; }
+}
+.animate-nav-progress {
+  animation: nav-progress 8s cubic-bezier(0.1, 0.6, 0.2, 1) forwards;
+}

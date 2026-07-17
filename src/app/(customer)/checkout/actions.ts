@@ -202,7 +202,10 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
   const paymentMethod: PaymentMethod = wantsUpi ? "upi" : "cod";
 
   const total = Math.max(0, subtotal - discount) + deliveryFee;
-  const orderNumber = "DK" + Date.now().toString().slice(-8);
+  // 8 clock digits alone repeat every ~27.8 hours; the 2 random digits make a
+  // duplicate (which would fail the order outright) effectively impossible.
+  const orderNumber =
+    "DK" + Date.now().toString().slice(-8) + Math.floor(Math.random() * 100).toString().padStart(2, "0");
   // Generated here rather than relying on the DB trigger — a missing OTP
   // would let a rider confirm delivery without the customer.
   const deliveryOtp = String(Math.floor(1000 + Math.random() * 9000));
