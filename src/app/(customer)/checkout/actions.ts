@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { distanceKm } from "@/lib/geo";
+import { distanceKm, quoteDelivery } from "@/lib/geo";
 import type { PaymentMethod } from "@/types/database";
 
 export type CheckoutInput = {
@@ -19,6 +19,8 @@ export type CheckoutInput = {
   lng: number | null;
   couponCode: string | null;
   paymentMethod: PaymentMethod; // what they CHOSE; the rider confirms what actually happened
+  /** The delivery fee the checkout page displayed. Checked, never trusted. */
+  expectedDeliveryFee?: number;
 };
 
 export type PlaceOrderResult =
@@ -146,13 +148,25 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
   }
 
   // ---- Kitchen rules (enforced server-side, never trust the browser) --------
-  const { data: settings } = await supabase
+  const { data: settings, error: settingsErr } = await supabase
     .from("business_settings")
-    .select("status, is_accepting_orders, min_order_amount, delivery_fee, delivery_radius_km, kitchen_lat, kitchen_lng, upi_id")
+    .select(
+      "status, is_accepting_orders, min_order_amount, delivery_fee, delivery_radius_km, extra_km_fee, max_delivery_km, kitchen_lat, kitchen_lng, upi_id"
+    )
     .eq("id", 1)
     .single();
 
-  if (settings && (settings.status === "closed" || !settings.is_accepting_orders)) {
+  // If this read fails we know nothing: not whether the kitchen is open, not the
+  // minimum, not the delivery radius. Refuse rather than let an order through
+  // with none of the rules applied.
+  if (settingsErr || !settings) {
+    return {
+      ok: false,
+      error: "We couldn't check the kitchen's settings just now. Please try again in a moment.",
+    };
+  }
+
+  if (settings.status === "closed" || !settings.is_accepting_orders) {
     return { ok: false, error: "The kitchen isn't accepting orders right now. Please try again later." };
   }
 
@@ -164,24 +178,35 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
     };
   }
 
-  const deliveryFee = Number(settings?.delivery_fee ?? 0);
-
-  // ---- Too far to deliver? (only when we know both points) ------------------
-  const radius = Number(settings?.delivery_radius_km ?? 0);
-  if (
-    radius > 0 &&
+  // ---- How far away are they, and what does that cost? ---------------------
+  // Priced here, on the server, from the settings row — the browser's numbers
+  // are only ever used to check we agree, never to set the price.
+  const away =
     settings?.kitchen_lat != null &&
     settings?.kitchen_lng != null &&
     input.lat != null &&
     input.lng != null
-  ) {
-    const away = distanceKm(settings.kitchen_lat, settings.kitchen_lng, input.lat, input.lng);
-    if (away > radius) {
-      return {
-        ok: false,
-        error: `Sorry — you're about ${away.toFixed(1)} km away and we only deliver within ${radius} km of the kitchen.`,
-      };
-    }
+      ? distanceKm(settings.kitchen_lat, settings.kitchen_lng, input.lat, input.lng)
+      : null;
+
+  const quote = quoteDelivery(away, {
+    baseFee: Number(settings?.delivery_fee ?? 0),
+    freeRadiusKm: Number(settings?.delivery_radius_km ?? 0),
+    perKmFee: Number(settings?.extra_km_fee ?? 0),
+    maxKm: settings?.max_delivery_km != null ? Number(settings.max_delivery_km) : null,
+  });
+
+  if (quote.refusal) return { ok: false, error: quote.refusal };
+
+  const deliveryFee = quote.fee;
+
+  // If the price moved between them opening checkout and pressing the button
+  // (you changed a setting mid-order), stop rather than quietly charge more.
+  if (input.expectedDeliveryFee != null && Math.round(input.expectedDeliveryFee) !== Math.round(deliveryFee)) {
+    return {
+      ok: false,
+      error: `The delivery fee just changed to ${rupees(deliveryFee)}. Please refresh the page and check your total before ordering.`,
+    };
   }
 
   // ---- Coupon (re-validated here, not taken on trust) ----------------------

@@ -9,7 +9,7 @@ const ACTIVE_STATUSES = ["pending", "accepted", "preparing", "ready_for_pickup",
 const PAST_PER_PAGE = 20;
 
 const COLUMNS =
-  "id, order_number, status, total, payment_method, payment_status, placed_at, delivery_partner_id, customer_lat, customer_lng, delivery_otp, delivery_notes, delivery_address, order_items(item_name, quantity)";
+  "id, order_number, status, total, payment_method, payment_status, placed_at, delivery_partner_id, customer_lat, customer_lng, delivery_fee, delivery_otp, delivery_notes, delivery_address, order_items(item_name, quantity)";
 
 export default async function AdminOrdersPage({
   searchParams,

@@ -19,6 +19,7 @@ export type AdminOrder = {
   delivery_partner_id: string | null;
   customer_lat: number | null;
   customer_lng: number | null;
+  delivery_fee: number | null;
   delivery_otp: string | null;
   delivery_notes: string | null;
   delivery_address: Record<string, string> | null;
@@ -141,17 +142,27 @@ export function OrderCard({
         </p>
         <p className="mt-1 text-brown/75">{fullAddress}</p>
 
+        {distanceKm == null && (
+          <p className="mt-2 inline-flex rounded-full bg-cream px-3 py-1 text-xs font-medium text-brown/70">
+            Location not shared — distance unknown, flat delivery fee only
+          </p>
+        )}
         {distanceKm != null && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
-                tooFar ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"
+                tooFar ? "bg-amber-100 text-amber-900" : "bg-green-100 text-green-800"
               )}
             >
               {formatKm(distanceKm)} away (straight line)
-              {tooFar && radiusKm != null && <> · outside your {radiusKm} km range</>}
+              {tooFar && radiusKm != null && <> · beyond your {radiusKm} km area</>}
             </span>
+            {Number(order.delivery_fee ?? 0) > 0 && (
+              <span className="inline-flex rounded-full bg-cream px-3 py-1 text-xs font-medium text-brown">
+                {formatINR(Number(order.delivery_fee))} delivery charged
+              </span>
+            )}
             {kitchenLat != null && kitchenLng != null && order.customer_lat != null && order.customer_lng != null && (
               <a
                 href={directionsUrl(kitchenLat, kitchenLng, order.customer_lat, order.customer_lng)}

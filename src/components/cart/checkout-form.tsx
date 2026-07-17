@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { placeOrder, validateCoupon, type CheckoutInput } from "@/app/(customer)/checkout/actions";
 import { formatINR, cn } from "@/lib/utils";
+import { distanceKm, formatKm, quoteDelivery } from "@/lib/geo";
 import type { PaymentMethod } from "@/types/database";
 import { UpiQr } from "@/components/payments/upi-qr";
 
@@ -47,6 +48,11 @@ export function CheckoutForm({
   deliveryFee,
   initialName = "",
   initialPhone = "",
+  kitchenLat = null,
+  kitchenLng = null,
+  freeRadiusKm = 0,
+  perKmFee = 0,
+  maxKm = null,
   upiId = null,
   upiName = "Das Kitchen",
   savedAddresses = [],
@@ -55,6 +61,11 @@ export function CheckoutForm({
   deliveryFee: number;
   initialName?: string;
   initialPhone?: string;
+  kitchenLat?: number | null;
+  kitchenLng?: number | null;
+  freeRadiusKm?: number;
+  perKmFee?: number;
+  maxKm?: number | null;
   upiId?: string | null;
   upiName?: string;
   savedAddresses?: SavedAddress[];
@@ -85,7 +96,23 @@ export function CheckoutForm({
   const [couponBusy, setCouponBusy] = useState(false);
 
   const discount = coupon?.discount ?? 0;
-  const total = Math.max(0, subtotal - discount) + deliveryFee;
+
+  // How far away are they? Only knowable once they share their location.
+  const away =
+    coords && kitchenLat != null && kitchenLng != null
+      ? distanceKm(kitchenLat, kitchenLng, coords.lat, coords.lng)
+      : null;
+
+  // Exactly the same call the server makes, so what they see is what they pay.
+  const quote = quoteDelivery(away, {
+    baseFee: deliveryFee,
+    freeRadiusKm,
+    perKmFee,
+    maxKm,
+  });
+  const fee = quote.fee;
+  const total = Math.max(0, subtotal - discount) + fee;
+  const farAway = away != null && freeRadiusKm > 0 && away > freeRadiusKm;
 
   function update(key: keyof FormState, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -151,6 +178,9 @@ export function CheckoutForm({
       lng: coords?.lng ?? null,
       couponCode: coupon?.code ?? null,
       paymentMethod: payBy,
+      // The fee we showed them. The server recalculates and refuses if the two
+      // disagree, so nobody is ever charged more than the screen promised.
+      expectedDeliveryFee: fee,
     };
     const res = await placeOrder(payload);
     setSubmitting(false);
@@ -246,7 +276,11 @@ export function CheckoutForm({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-coffee">Share your location</p>
-              <p className="text-xs text-brown/60">Helps the rider find you faster.</p>
+              <p className="text-xs text-brown/60">
+                {perKmFee > 0 && freeRadiusKm > 0
+                  ? `Helps the rider find you — and sets your exact delivery fee beyond ${freeRadiusKm} km.`
+                  : "Helps the rider find you faster."}
+              </p>
             </div>
             <button
               type="button"
@@ -331,9 +365,23 @@ export function CheckoutForm({
             <span>−{formatINR(discount)}</span>
           </div>
         )}
-        <div className="flex justify-between text-sm text-brown/80">
-          <span>Delivery fee</span>
-          <span>{deliveryFee === 0 ? "Free" : formatINR(deliveryFee)}</span>
+        <div>
+          <div className="flex justify-between text-sm text-brown/80">
+            <span>Delivery fee</span>
+            <span className={cn(quote.extraFee > 0 && "font-semibold text-coffee")}>
+              {quote.refusal ? "—" : fee === 0 ? "Free" : formatINR(fee)}
+            </span>
+          </div>
+          {quote.extraFee > 0 && (
+            <p className="mt-1 text-xs text-brown/55">
+              {formatKm(away!)} away · {quote.extraKm} km beyond our {freeRadiusKm} km area
+              {deliveryFee > 0 && <> · {formatINR(deliveryFee)} base</>} +{" "}
+              {formatINR(quote.extraFee)} distance
+            </p>
+          )}
+          {away != null && !farAway && (
+            <p className="mt-1 text-xs text-green-700">{formatKm(away)} away · inside our delivery area</p>
+          )}
         </div>
         <div className="flex justify-between border-t border-brown/10 pt-3 font-semibold text-coffee">
           <span>Total</span>
@@ -383,11 +431,16 @@ export function CheckoutForm({
             </div>
           )}
         </div>
+        {quote.refusal && (
+          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+            {quote.refusal}
+          </p>
+        )}
         {error && <p className="text-sm font-medium text-red-600">{error}</p>}
         <button
           type="submit"
-          disabled={submitting}
-          className="w-full rounded-full bg-coffee px-6 py-3 text-sm font-medium text-cream hover:bg-brown disabled:opacity-60"
+          disabled={submitting || quote.refusal != null}
+          className="w-full rounded-full bg-coffee px-6 py-3 text-sm font-medium text-cream hover:bg-brown disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? "Placing order…" : `Place order · ${formatINR(total)}`}
         </button>

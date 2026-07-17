@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { cn } from "@/lib/utils";
-import { osmEmbedUrl } from "@/lib/geo";
+import { cn, formatINR } from "@/lib/utils";
+import { osmEmbedUrl, quoteDelivery } from "@/lib/geo";
 import { looksLikeUpiId } from "@/lib/upi";
 import { UpiQr } from "@/components/payments/upi-qr";
 import type { BusinessSettings, BusinessStatus } from "@/types/database";
@@ -34,6 +34,8 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
     min_order_amount: String(settings.min_order_amount ?? 0),
     delivery_fee: String(settings.delivery_fee ?? 0),
     delivery_radius_km: String(settings.delivery_radius_km ?? 0),
+    extra_km_fee: String(settings.extra_km_fee ?? 0),
+    max_delivery_km: settings.max_delivery_km != null ? String(settings.max_delivery_km) : "",
     kitchen_address: settings.kitchen_address ?? "",
     phone: settings.phone ?? "",
     whatsapp: settings.whatsapp ?? "",
@@ -75,6 +77,8 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
         min_order_amount: num(form.min_order_amount),
         delivery_fee: num(form.delivery_fee),
         delivery_radius_km: num(form.delivery_radius_km),
+        extra_km_fee: num(form.extra_km_fee),
+        max_delivery_km: form.max_delivery_km.trim() === "" ? null : num(form.max_delivery_km),
         kitchen_address: form.kitchen_address,
         phone: form.phone,
         whatsapp: form.whatsapp,
@@ -91,6 +95,17 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
 
   const field = "w-full rounded-xl border border-brown/20 bg-white px-4 py-2.5 text-sm outline-none focus:border-gold";
   const labelCls = "text-sm font-medium text-brown";
+
+  // Live preview of the distance rule, so you can see what a far-away customer
+  // will actually be charged before you save it.
+  const pricing = {
+    baseFee: num(form.delivery_fee),
+    freeRadiusKm: num(form.delivery_radius_km),
+    perKmFee: num(form.extra_km_fee),
+    maxKm: form.max_delivery_km.trim() === "" ? null : num(form.max_delivery_km),
+  };
+  const previewKm = [2, 5, 8, 12];
+  const chargesExtra = pricing.perKmFee > 0 && pricing.freeRadiusKm > 0;
 
   return (
     <div className="space-y-8">
@@ -275,6 +290,88 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
             </p>
           </div>
         )}
+      </section>
+
+      {/* Distance pricing — how far we go, and what it costs */}
+      <section className="rounded-2xl border border-brown/10 bg-soft p-6 shadow-card">
+        <h2 className="font-display text-xl text-coffee">Delivering further away</h2>
+        <p className="mt-1 text-sm text-brown/60">
+          Inside your radius the flat delivery fee applies. Beyond it, you can either refuse the
+          order or charge extra per km — your choice.
+        </p>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <span className={labelCls}>Extra charge per km beyond the radius (₹)</span>
+            <input
+              className={field}
+              inputMode="decimal"
+              placeholder="0"
+              value={form.extra_km_fee}
+              onChange={(e) => set("extra_km_fee", e.target.value)}
+            />
+            <p className="mt-1 text-xs text-brown/55">
+              Leave at <strong>0</strong> to keep refusing orders outside {pricing.freeRadiusKm || 0} km.
+            </p>
+          </div>
+          <div>
+            <span className={labelCls}>Never deliver further than (km)</span>
+            <input
+              className={field}
+              inputMode="decimal"
+              placeholder="No limit"
+              value={form.max_delivery_km}
+              onChange={(e) => set("max_delivery_km", e.target.value)}
+            />
+            <p className="mt-1 text-xs text-brown/55">
+              A hard stop, whatever the extra charge. Blank = no limit.
+            </p>
+          </div>
+        </div>
+
+        {chargesExtra ? (
+          <div className="mt-5 rounded-xl border border-brown/15 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brown/50">
+              What customers will pay
+            </p>
+            <ul className="mt-2 space-y-1.5 text-sm">
+              {previewKm.map((km) => {
+                const q = quoteDelivery(km, pricing);
+                return (
+                  <li key={km} className="flex items-center justify-between gap-3">
+                    <span className="text-brown/70">{km} km away</span>
+                    {q.refusal ? (
+                      <span className="text-xs font-semibold text-red-700">Order refused</span>
+                    ) : (
+                      <span className="font-semibold text-coffee">
+                        {q.fee === 0 ? "Free" : formatINR(q.fee)}
+                        {q.extraFee > 0 && (
+                          <span className="ml-1.5 text-xs font-normal text-brown/55">
+                            (+{formatINR(q.extraFee)} for {q.extraKm} km)
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="mt-3 text-xs text-brown/55">
+              Part of a km counts as a full km. Distance is measured straight-line from the kitchen,
+              so it is always a little less than the road — the customer never over-pays.
+            </p>
+          </div>
+        ) : (
+          <p className="mt-4 rounded-lg bg-cream px-3 py-2 text-xs text-brown/70">
+            Right now, anyone outside {pricing.freeRadiusKm || 0} km is told you don&apos;t deliver to
+            them. Put a rupee amount above to accept those orders and charge for the extra distance.
+          </p>
+        )}
+
+        <p className="mt-3 text-xs text-brown/50">
+          Customers who don&apos;t share their location can&apos;t be measured, so they pay the flat fee
+          only. You&apos;ll see &ldquo;location not shared&rdquo; on those orders.
+        </p>
       </section>
 
       {/* Delivery + business info */}

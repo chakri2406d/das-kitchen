@@ -21,7 +21,9 @@ export default async function CheckoutPage() {
     supabase.from("cart_items").select("quantity, menu_items(price)").eq("user_id", user.id),
     supabase
       .from("business_settings")
-      .select("status, is_accepting_orders, min_order_amount, delivery_fee, upi_id, upi_name")
+      .select(
+        "status, is_accepting_orders, min_order_amount, delivery_fee, delivery_radius_km, extra_km_fee, max_delivery_km, kitchen_lat, kitchen_lng, upi_id, upi_name"
+      )
       .eq("id", 1)
       .single(),
     supabase.from("profiles").select("full_name, phone").eq("id", user.id).single(),
@@ -81,6 +83,11 @@ export default async function CheckoutPage() {
             deliveryFee={deliveryFee}
             initialName={profile?.full_name ?? ""}
             initialPhone={profile?.phone ?? ""}
+            kitchenLat={settings?.kitchen_lat ?? null}
+            kitchenLng={settings?.kitchen_lng ?? null}
+            freeRadiusKm={Number(settings?.delivery_radius_km ?? 0)}
+            perKmFee={Number(settings?.extra_km_fee ?? 0)}
+            maxKm={settings?.max_delivery_km != null ? Number(settings.max_delivery_km) : null}
             upiId={settings?.upi_id ?? null}
             upiName={settings?.upi_name ?? "Das Kitchen"}
             savedAddresses={saved ?? []}

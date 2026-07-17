@@ -42,6 +42,8 @@ export type SettingsInput = {
   min_order_amount: number;
   delivery_fee: number;
   delivery_radius_km: number;
+  extra_km_fee: number;
+  max_delivery_km: number | null;
   kitchen_address: string;
   phone: string;
   whatsapp: string;
@@ -66,6 +68,10 @@ export async function updateSettings(input: SettingsInput): Promise<ActionResult
       min_order_amount: input.min_order_amount,
       delivery_fee: input.delivery_fee,
       delivery_radius_km: input.delivery_radius_km,
+      extra_km_fee: Math.max(0, input.extra_km_fee),
+      // 0 / blank means "no limit" — store NULL so the rule reads honestly.
+      max_delivery_km:
+        input.max_delivery_km != null && input.max_delivery_km > 0 ? input.max_delivery_km : null,
       kitchen_address: input.kitchen_address || null,
       phone: input.phone || null,
       whatsapp: input.whatsapp || null,

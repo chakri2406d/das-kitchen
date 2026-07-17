@@ -213,6 +213,10 @@ export type BusinessSettings = {
   min_order_amount: number | null;
   delivery_fee: number | null;
   delivery_radius_km: number | null;
+  /** Rupees per km beyond delivery_radius_km. 0 = refuse orders outside it. */
+  extra_km_fee: number | null;
+  /** Hard delivery limit in km. null = no limit. */
+  max_delivery_km: number | null;
   kitchen_lat: number | null;
   kitchen_lng: number | null;
   kitchen_address: string | null;
