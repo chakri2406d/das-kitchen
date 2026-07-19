@@ -204,6 +204,16 @@ export type DeliveryTracking = {
   recorded_at: string;
 }
 
+export type PushSubscriptionRow = {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent: string | null;
+  created_at: string;
+}
+
 export type BusinessSettings = {
   id: number;
   upi_id: string | null;
@@ -258,6 +268,7 @@ export type Database = {
       notifications: Table<Notification, "user_id" | "title">;
       delivery_tracking: Table<DeliveryTracking, "order_id" | "delivery_partner_id" | "latitude" | "longitude">;
       business_settings: Table<BusinessSettings>;
+      push_subscriptions: Table<PushSubscriptionRow, "user_id" | "endpoint" | "p256dh" | "auth">;
     };
     Views: { [_ in never]: never };
     Functions: {

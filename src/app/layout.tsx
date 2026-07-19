@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { NavProgress } from "@/components/layout/nav-progress";
+import { RegisterSW } from "@/components/pwa/register-sw";
 import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -20,7 +21,24 @@ export const metadata: Metadata = {
   title: "Das Kitchen — Homemade Happiness Delivered Fresh",
   description:
     "Freshly prepared homemade meals from Das Kitchen. Order breakfast, lunch, dinner and combos, delivered warm to your door.",
-  icons: { icon: "/logo.png" },
+  manifest: "/manifest.json",
+  applicationName: "Das Kitchen",
+  appleWebApp: {
+    capable: true,
+    title: "Das Kitchen",
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: "/logo.png",
+    apple: "/apple-touch-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#b08d00",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -31,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <NavProgress />
         </Suspense>
         {children}
+        <RegisterSW />
       </body>
     </html>
   );

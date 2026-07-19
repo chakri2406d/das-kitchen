@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { distanceKm, quoteDelivery } from "@/lib/geo";
+import { sendPushToAdmins } from "@/lib/push";
 import type { PaymentMethod } from "@/types/database";
 
 export type CheckoutInput = {
@@ -309,6 +310,17 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
       longitude: input.lng,
     });
   }
+
+  // Wake the kitchen: this reaches the owner's phone even with the browser shut.
+  const itemSummary = items
+    .map((r) => `${r.menu_items!.name} x${r.quantity}`)
+    .join(", ");
+  await sendPushToAdmins({
+    title: `New order ${rupees(total)} - Das Kitchen`,
+    body: `#${orderNumber} - ${itemSummary}`,
+    url: "/admin/orders",
+    tag: order.id,
+  });
 
   // Powers "Best Sellers" / specials ordering.
   await supabase.rpc("bump_order_counts", { p_order_id: order.id });
