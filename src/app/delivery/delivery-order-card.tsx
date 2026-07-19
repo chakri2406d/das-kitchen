@@ -136,11 +136,26 @@ export function DeliveryOrderCard({
       </div>
 
       {/* Money */}
-      <div className="mt-3 flex items-center justify-between rounded-xl bg-cream px-4 py-3">
-        <span className="text-sm text-brown/70">
-          {collectCash ? "Collect cash on delivery" : "Already paid — collect nothing"}
+      <div
+        className={cn(
+          "mt-3 flex items-center justify-between rounded-xl border px-4 py-3",
+          collectCash ? "border-amber-200 bg-amber-50" : "border-green-200 bg-green-50"
+        )}
+      >
+        <span className="flex items-center gap-2 text-sm">
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-0.5 text-xs font-bold",
+              collectCash ? "bg-amber-200 text-amber-900" : "bg-green-200 text-green-900"
+            )}
+          >
+            {collectCash ? "COLLECT CASH" : "PREPAID"}
+          </span>
+          <span className={collectCash ? "text-amber-900" : "text-green-800"}>
+            {collectCash ? "Collect from customer" : "Already paid — collect nothing"}
+          </span>
         </span>
-        <span className={cn("font-semibold", collectCash ? "text-coffee" : "text-green-700")}>
+        <span className={cn("font-bold", collectCash ? "text-coffee" : "text-green-700")}>
           {formatINR(Number(order.total))}
         </span>
       </div>

@@ -32,7 +32,7 @@ export function CartItemRow({ row }: { row: CartRow }) {
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-brown/10 bg-soft p-4 shadow-card">
+    <div className="flex flex-col gap-3 rounded-2xl border border-brown/10 bg-soft p-4 shadow-card sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
         <span
           className={`h-3 w-3 shrink-0 rounded-full border-2 ${
@@ -45,7 +45,7 @@ export function CartItemRow({ row }: { row: CartRow }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center justify-end gap-3 sm:gap-4">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setQuantity(row.quantity - 1)}

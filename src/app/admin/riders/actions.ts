@@ -25,14 +25,16 @@ function revalidate() {
 /**
  * Promotes an EXISTING account (found by email) to a delivery partner.
  * The person must have signed up on the site first — only they can create
- * their own password / Google identity.
+ * their own password / Google identity. An optional mobile number is saved so
+ * the admin can WhatsApp them their assigned orders.
  */
-export async function makeDeliveryPartner(email: string): Promise<ActionResult> {
+export async function makeDeliveryPartner(email: string, phone?: string): Promise<ActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, error: auth.error };
 
   const clean = email.trim().toLowerCase();
   if (!clean) return { ok: false, error: "Enter an email address." };
+  const cleanPhone = (phone ?? "").trim();
 
   const { data: profile } = await auth.supabase
     .from("profiles")
@@ -53,10 +55,9 @@ export async function makeDeliveryPartner(email: string): Promise<ActionResult> 
     return { ok: false, error: "That account is already a delivery partner." };
   }
 
-  const { error: roleErr } = await auth.supabase
-    .from("profiles")
-    .update({ role: "delivery_partner" })
-    .eq("id", profile.id);
+  const patch: Record<string, unknown> = { role: "delivery_partner" };
+  if (cleanPhone) patch.phone = cleanPhone;
+  const { error: roleErr } = await auth.supabase.from("profiles").update(patch).eq("id", profile.id);
   if (roleErr) return { ok: false, error: roleErr.message };
 
   // Create their rider record (vehicle/status live here).
@@ -67,6 +68,21 @@ export async function makeDeliveryPartner(email: string): Promise<ActionResult> 
 
   revalidate();
   return { ok: true, message: `${profile.full_name ?? clean} is now a delivery partner. Ask them to sign out and back in.` };
+}
+
+/** Set or update a rider's mobile number (used for WhatsApp assignment). */
+export async function setRiderPhone(id: string, phone: string): Promise<ActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  const clean = phone.trim();
+  const { error } = await auth.supabase
+    .from("profiles")
+    .update({ phone: clean || null })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidate();
+  return { ok: true, message: clean ? "Phone saved." : "Phone cleared." };
 }
 
 /** Demotes a delivery partner back to a normal customer. */

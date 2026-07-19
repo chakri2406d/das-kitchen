@@ -42,7 +42,7 @@ export default async function CartPage() {
   return (
     <main className="min-h-screen bg-cream">
       <Navbar />
-      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:py-12 sm:px-6">
         <h1 className="font-display text-3xl text-coffee">Your Cart</h1>
 
         {rows.length === 0 ? (

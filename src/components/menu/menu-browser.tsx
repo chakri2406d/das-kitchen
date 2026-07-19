@@ -138,7 +138,7 @@ export function MenuBrowser({
         visible.map((s) => (
           <section key={s.id} id={`cat-${s.id}`} className="mt-10 scroll-mt-40">
             <h2 className="font-display text-2xl text-coffee">{s.name}</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 items-start auto-rows-min">
               {s.groups.map((group, i) => (
                 <MenuCard key={group.key} group={group} userId={userId} cartQty={cartQty} index={i} />
               ))}

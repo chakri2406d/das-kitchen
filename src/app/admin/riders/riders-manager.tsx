@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
-import { makeDeliveryPartner, removeDeliveryPartner, setRiderVerified } from "./actions";
+import { makeDeliveryPartner, removeDeliveryPartner, setRiderVerified, setRiderPhone } from "./actions";
 
 export type RiderRow = {
   id: string;
@@ -24,6 +24,7 @@ const STATUS_PILL: Record<string, string> = {
 
 export function RidersManager({ riders }: { riders: RiderRow[] }) {
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -41,11 +42,24 @@ export function RidersManager({ riders }: { riders: RiderRow[] }) {
   function add() {
     if (!email.trim()) return;
     const value = email;
+    const ph = phone;
     run(async () => {
-      const res = await makeDeliveryPartner(value);
-      if (res.ok) setEmail("");
+      const res = await makeDeliveryPartner(value, ph);
+      if (res.ok) {
+        setEmail("");
+        setPhone("");
+      }
       return res;
     });
+  }
+
+  function editPhone(r: RiderRow) {
+    const next = window.prompt(
+      `Mobile number for ${r.full_name ?? r.email ?? "this rider"} (with country code, e.g. 9198XXXXXXXX):`,
+      r.phone ?? ""
+    );
+    if (next === null) return; // cancelled
+    run(() => setRiderPhone(r.id, next));
   }
 
   const field =
@@ -58,7 +72,7 @@ export function RidersManager({ riders }: { riders: RiderRow[] }) {
         <h2 className="font-display text-xl text-coffee">Add a delivery partner</h2>
         <p className="mt-1 text-sm text-brown/70">
           They must sign up on the site first with this email — then enter it here to turn their
-          account into a delivery partner.
+          account into a delivery partner. Add their mobile number so you can WhatsApp them orders.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <input
@@ -67,7 +81,15 @@ export function RidersManager({ riders }: { riders: RiderRow[] }) {
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !pending && add()}
             placeholder="rider@gmail.com"
-            className={cn(field, "max-w-sm flex-1")}
+            className={cn(field, "min-w-[14rem] flex-1")}
+          />
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !pending && add()}
+            placeholder="Mobile (e.g. 9198XXXXXXXX)"
+            className={cn(field, "min-w-[12rem] flex-1")}
           />
           <button
             onClick={add}
@@ -99,11 +121,24 @@ export function RidersManager({ riders }: { riders: RiderRow[] }) {
                   <p className="font-medium text-coffee">{r.full_name ?? "Unnamed rider"}</p>
                   <p className="text-sm text-brown/60">{r.email}</p>
                   <p className="text-xs text-brown/45">
-                    {r.phone ? `${r.phone} · ` : ""}
+                    {r.phone ? (
+                      <span className="font-semibold text-brown/70">{r.phone}</span>
+                    ) : (
+                      <span className="text-red-500">No mobile number</span>
+                    )}
+                    {" · "}
                     {r.vehicle_type ?? "bike"}
                     {r.vehicle_number ? ` (${r.vehicle_number})` : ""} · {r.total_deliveries} deliveries
                   </p>
                 </div>
+
+                <button
+                  onClick={() => editPhone(r)}
+                  disabled={pending}
+                  className="rounded-full border border-brown/25 px-3 py-1.5 text-xs font-medium text-brown hover:bg-brown/5 disabled:opacity-60"
+                >
+                  {r.phone ? "Edit phone" : "Add phone"}
+                </button>
 
                 <span
                   className={cn(

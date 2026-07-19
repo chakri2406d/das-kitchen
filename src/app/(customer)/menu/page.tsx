@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/layout/navbar";
 import { MenuBrowser, type MenuSection } from "@/components/menu/menu-browser";
+import { CartBar } from "@/components/cart/cart-bar";
 import { createClient } from "@/lib/supabase/server";
 import { groupMenuItems } from "@/lib/menu";
 import type { Category, MenuItem } from "@/types/database";
@@ -48,7 +49,7 @@ export default async function MenuPage() {
   return (
     <main className="min-h-screen bg-cream">
       <Navbar />
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12 sm:px-6">
         <div className="animate-fade-up">
           <h1 className="font-display text-4xl text-coffee">Our Menu</h1>
           <p className="mt-2 text-brown/70">Freshly made, every single day.</p>
@@ -62,6 +63,8 @@ export default async function MenuPage() {
           <MenuBrowser sections={sections} userId={userId} cartQty={cartQty} />
         )}
       </div>
+      <div className="h-24" />
+      <CartBar />
     </main>
   );
 }
