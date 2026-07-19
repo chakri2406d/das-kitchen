@@ -59,7 +59,12 @@ export function DeliveryOrderCard({
     ? mapsNavUrl(order.customer_lat as number, order.customer_lng as number)
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
 
-  const collectCash = order.payment_method === "cod" && order.payment_status !== "paid";
+  // Based ONLY on whether the money has actually been received. Using the chosen
+  // method here was a bug: an order marked paid-by-UPI and then un-marked still
+  // looked "prepaid" to the rider, so they would collect nothing.
+  const isPaid = order.payment_status === "paid";
+  const collectCash = !isPaid;
+  const collectLabel = order.payment_method === "upi" ? "COLLECT PAYMENT" : "COLLECT CASH";
 
   function run(fn: () => Promise<{ ok: boolean; error?: string; message?: string }>) {
     setMsg(null);
@@ -149,7 +154,7 @@ export function DeliveryOrderCard({
               collectCash ? "bg-amber-200 text-amber-900" : "bg-green-200 text-green-900"
             )}
           >
-            {collectCash ? "COLLECT CASH" : "PREPAID"}
+            {collectCash ? collectLabel : "PREPAID"}
           </span>
           <span className={collectCash ? "text-amber-900" : "text-green-800"}>
             {collectCash ? "Collect from customer" : "Already paid — collect nothing"}

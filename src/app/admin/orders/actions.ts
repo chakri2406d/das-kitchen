@@ -20,6 +20,10 @@ async function requireAdmin() {
 function revalidate() {
   revalidatePath("/admin/orders");
   revalidatePath("/admin");
+  // The customer and the rider both show payment state — refresh them too, or
+  // they keep serving a cached "paid" after it's been un-marked.
+  revalidatePath("/orders");
+  revalidatePath("/delivery");
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<ActionResult> {

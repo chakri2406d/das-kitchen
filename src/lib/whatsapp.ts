@@ -34,7 +34,9 @@ function paymentLine(o: WaOrderInfo): string {
       ? "💳 PREPAID (online) — collect nothing"
       : "💳 PAID — collect nothing";
   }
-  return `💰 COLLECT ${rupees(o.total)} in CASH on delivery`;
+  return o.paymentMethod === "upi"
+    ? `💰 NOT PAID — COLLECT ${rupees(o.total)} on delivery (UPI or cash)`
+    : `💰 COLLECT ${rupees(o.total)} in CASH on delivery`;
 }
 
 /** Message for a delivery partner about an order assigned to them. */
