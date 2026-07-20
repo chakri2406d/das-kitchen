@@ -69,6 +69,9 @@ export function OrderCard({
   const done = order.status === "delivered" || order.status === "cancelled";
   const items = order.order_items ?? [];
   const tooFar = distanceKm != null && radiusKm != null && distanceKm > radiusKm;
+  // The billed part of the trip: whole km past the free radius, rounded up —
+  // the same arithmetic quoteDelivery() used when the customer was charged.
+  const beyondKm = tooFar && radiusKm != null && distanceKm != null ? Math.ceil(distanceKm - radiusKm) : 0;
   const paid = order.payment_status === "paid";
   const payLabel =
     order.payment_method === "cod" ? "Cash" : order.payment_method === "upi" ? "Online (UPI)" : order.payment_method;
@@ -156,7 +159,10 @@ export function OrderCard({
               )}
             >
               {formatKm(distanceKm)} away (straight line)
-              {tooFar && radiusKm != null && <> · beyond your {radiusKm} km area</>}
+              {tooFar && radiusKm != null && (
+                <> · {radiusKm} km free + {beyondKm} km charged</>
+              )}
+              {!tooFar && radiusKm != null && <> · inside your {radiusKm} km area</>}
             </span>
             {Number(order.delivery_fee ?? 0) > 0 && (
               <span className="inline-flex rounded-full bg-cream px-3 py-1 text-xs font-medium text-brown">

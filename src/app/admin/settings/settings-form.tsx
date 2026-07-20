@@ -19,6 +19,20 @@ function num(v: string) {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * Keeps a number box honest as you type.
+ *
+ * These fields start at "0". Typing "20" into one lands you with "010" — which
+ * reads back as 10, not 20, and you'd never notice until a customer was
+ * undercharged. Strip the leading zero and only allow digits and one dot.
+ */
+function cleanNum(v: string): string {
+  const only = v.replace(/[^\d.]/g, "");
+  const [head = "", ...rest] = only.split(".");
+  const int = head.replace(/^0+(?=\d)/, "");
+  return rest.length > 0 ? `${int || "0"}.${rest.join("").slice(0, 2)}` : int;
+}
+
 export function SettingsForm({ settings }: { settings: BusinessSettings }) {
   const [status, setStatus] = useState<BusinessStatus>(settings.status);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
@@ -49,8 +63,16 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // Everything on this page is saved by one button, so it needs to be obvious
+  // when there's something waiting to be saved. Comparing against the last
+  // saved snapshot is cheap and never lies.
+  const snapshot = JSON.stringify({ form, coords });
+  const [savedSnapshot, setSavedSnapshot] = useState(snapshot);
+  const dirty = snapshot !== savedSnapshot;
+
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm((f) => ({ ...f, [k]: v }));
+    setMsg(null); // an old "Settings saved." next to a fresh edit is a lie
   }
 
   function changeStatus(next: BusinessStatus) {
@@ -89,6 +111,7 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
         upi_id: form.upi_id,
         upi_name: form.upi_name,
       });
+      if (res.ok) setSavedSnapshot(snapshot);
       setMsg(res.ok ? "Settings saved." : res.error);
     });
   }
@@ -104,7 +127,7 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
     perKmFee: num(form.extra_km_fee),
     maxKm: form.max_delivery_km.trim() === "" ? null : num(form.max_delivery_km),
   };
-  const previewKm = [2, 5, 8, 12];
+  const previewKm = [2, 5, 8, 12];  // 5 km is the example Surya reasons about
   const chargesExtra = pricing.perKmFee > 0 && pricing.freeRadiusKm > 0;
 
   return (
@@ -308,7 +331,8 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
               inputMode="decimal"
               placeholder="0"
               value={form.extra_km_fee}
-              onChange={(e) => set("extra_km_fee", e.target.value)}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => set("extra_km_fee", cleanNum(e.target.value))}
             />
             <p className="mt-1 text-xs text-brown/55">
               Leave at <strong>0</strong> to keep refusing orders outside {pricing.freeRadiusKm || 0} km.
@@ -321,7 +345,8 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
               inputMode="decimal"
               placeholder="No limit"
               value={form.max_delivery_km}
-              onChange={(e) => set("max_delivery_km", e.target.value)}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => set("max_delivery_km", cleanNum(e.target.value))}
             />
             <p className="mt-1 text-xs text-brown/55">
               A hard stop, whatever the extra charge. Blank = no limit.
@@ -334,20 +359,27 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
             <p className="text-xs font-semibold uppercase tracking-wide text-brown/50">
               What customers will pay
             </p>
-            <ul className="mt-2 space-y-1.5 text-sm">
+            <ul className="mt-2 space-y-2 text-sm">
               {previewKm.map((km) => {
                 const q = quoteDelivery(km, pricing);
                 return (
-                  <li key={km} className="flex items-center justify-between gap-3">
+                  <li key={km} className="flex items-start justify-between gap-3">
                     <span className="text-brown/70">{km} km away</span>
                     {q.refusal ? (
                       <span className="text-xs font-semibold text-red-700">Order refused</span>
                     ) : (
-                      <span className="font-semibold text-coffee">
-                        {q.fee === 0 ? "Free" : formatINR(q.fee)}
-                        {q.extraFee > 0 && (
-                          <span className="ml-1.5 text-xs font-normal text-brown/55">
-                            (+{formatINR(q.extraFee)} for {q.extraKm} km)
+                      <span className="text-right">
+                        <span className="font-semibold text-coffee">
+                          {q.fee === 0 ? "Free" : formatINR(q.fee)}
+                        </span>
+                        {q.extraFee > 0 ? (
+                          <span className="block text-xs font-normal text-brown/55">
+                            {q.extraKm} km past {pricing.freeRadiusKm} km × {formatINR(pricing.perKmFee)}
+                            {pricing.baseFee > 0 && <> + {formatINR(pricing.baseFee)} base</>}
+                          </span>
+                        ) : (
+                          <span className="block text-xs font-normal text-brown/55">
+                            inside your {pricing.freeRadiusKm} km area
                           </span>
                         )}
                       </span>
@@ -380,15 +412,33 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
             <span className={labelCls}>Minimum order (₹)</span>
-            <input className={field} inputMode="decimal" value={form.min_order_amount} onChange={(e) => set("min_order_amount", e.target.value)} />
+            <input
+              className={field}
+              inputMode="decimal"
+              value={form.min_order_amount}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => set("min_order_amount", cleanNum(e.target.value))}
+            />
           </div>
           <div>
             <span className={labelCls}>Delivery fee (₹)</span>
-            <input className={field} inputMode="decimal" value={form.delivery_fee} onChange={(e) => set("delivery_fee", e.target.value)} />
+            <input
+              className={field}
+              inputMode="decimal"
+              value={form.delivery_fee}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => set("delivery_fee", cleanNum(e.target.value))}
+            />
           </div>
           <div>
             <span className={labelCls}>Delivery radius (km)</span>
-            <input className={field} inputMode="decimal" value={form.delivery_radius_km} onChange={(e) => set("delivery_radius_km", e.target.value)} />
+            <input
+              className={field}
+              inputMode="decimal"
+              value={form.delivery_radius_km}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => set("delivery_radius_km", cleanNum(e.target.value))}
+            />
           </div>
           <div>
             <span className={labelCls}>FSSAI licence no.</span>
@@ -420,17 +470,26 @@ export function SettingsForm({ settings }: { settings: BusinessSettings }) {
           </div>
         </div>
 
-        <div className="mt-6 flex items-center gap-4">
-          <button
-            onClick={save}
-            disabled={pending}
-            className="rounded-full bg-gold px-6 py-2.5 text-sm font-semibold text-white shadow-warm hover:bg-gold-dark disabled:opacity-60"
-          >
-            {pending ? "Saving…" : "Save settings"}
-          </button>
-          {msg && <span className="text-sm text-brown/70">{msg}</span>}
-        </div>
       </section>
+
+      {/* One button saves this whole page, so it stays in reach wherever you
+          are on it — not buried at the bottom of one section. */}
+      <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-4 rounded-2xl border border-gold/40 bg-white/95 px-5 py-4 shadow-warm backdrop-blur">
+        <button
+          onClick={save}
+          disabled={pending}
+          className="rounded-full bg-gold px-6 py-2.5 text-sm font-semibold text-white shadow-warm hover:bg-gold-dark disabled:opacity-60"
+        >
+          {pending ? "Saving…" : "Save settings"}
+        </button>
+        {!pending && dirty && (
+          <span className="text-sm font-medium text-amber-800">
+            You have unsaved changes on this page.
+          </span>
+        )}
+        {!pending && !dirty && !msg && <span className="text-sm text-brown/50">All changes saved.</span>}
+        {msg && <span className="text-sm text-brown/70">{msg}</span>}
+      </div>
     </div>
   );
 }

@@ -19,13 +19,19 @@ type PendingOrder = {
 const ENABLED_KEY = "dk_alerts_enabled";
 const SNOOZE_KEY = "dk_alerts_snoozed_until";
 const SNOOZE_MS = 5 * 60 * 1000;
-const RING_EVERY_MS = 8000;
+
+// The burst below runs ~3.0s. Re-firing every 3.2s leaves a gap you can talk
+// through but never one you could mistake for silence.
+const BURST_MS = 3000;
+const RING_EVERY_MS = 3200;
 
 /**
  * Won't let an order be missed.
  *
- * While ANY order sits unaccepted, this blocks the admin screen and re-rings
- * every 8s until it's Accepted or Rejected. Snooze buys 5 minutes of quiet.
+ * Mounted in the ROOT layout, so it follows the admin onto every page — the
+ * menu, the home page, anywhere. It renders nothing at all for customers and
+ * riders. While ANY order sits unaccepted it blocks the screen and keeps
+ * sounding until it's Accepted or Rejected. Snooze buys 5 minutes of quiet.
  *
  * It works off "orders that are still pending" rather than off realtime events,
  * so a refresh, a dropped connection or a closed laptop can't make an order
@@ -35,6 +41,9 @@ export function NewOrderAlert() {
   const supabase = createClient();
   const router = useRouter();
 
+  // Checked client-side on purpose: doing it on the server would drag a cookie
+  // read into the root layout and make every page dynamic.
+  const [isAdmin, setIsAdmin] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [pending, setPending] = useState<PendingOrder[]>([]);
   const [snoozedUntil, setSnoozedUntil] = useState<number>(0);
@@ -47,25 +56,50 @@ export function NewOrderAlert() {
   const snoozing = snoozedUntil > now;
   const snoozeLeft = Math.max(0, Math.ceil((snoozedUntil - now) / 1000));
 
+  /**
+   * A two-tone siren, not a polite ding.
+   *
+   * The old version was a quiet sine wave — fine in a silent room, useless in a
+   * working kitchen. A square wave carries far more energy at the same peak
+   * level, so it cuts through noise; the compressor keeps the sum from clipping
+   * into a crackle. Two oscillators an octave apart give it body on phone
+   * speakers, which can barely reproduce a bare 880 Hz sine.
+   */
   const chime = useCallback(() => {
     const ctx = audioRef.current;
     if (!ctx) return;
     if (ctx.state === "suspended") void ctx.resume();
-    for (let rep = 0; rep < 3; rep++) {
-      [880, 1175].forEach((freq, i) => {
-        const t = ctx.currentTime + rep * 0.75 + i * 0.18;
+
+    const comp = ctx.createDynamicsCompressor();
+    const master = ctx.createGain();
+    master.gain.value = 1;
+    master.connect(comp);
+    comp.connect(ctx.destination);
+
+    const start = ctx.currentTime + 0.02;
+    const step = 0.3; // seconds per tone
+    const steps = Math.round(BURST_MS / 1000 / step);
+
+    for (let i = 0; i < steps; i++) {
+      const t = start + i * step;
+      const hi = i % 2 === 0 ? 880 : 1175; // the classic nee-naw
+      for (const [type, freq, level] of [
+        ["square", hi, 0.5],
+        ["sine", hi / 2, 0.4],
+      ] as const) {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = "sine";
+        osc.type = type;
         osc.frequency.value = freq;
         gain.gain.setValueAtTime(0, t);
-        gain.gain.linearRampToValueAtTime(0.35, t + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+        gain.gain.linearRampToValueAtTime(level, t + 0.012);
+        gain.gain.setValueAtTime(level, t + step - 0.06);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + step - 0.01);
         osc.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(master);
         osc.start(t);
-        osc.stop(t + 0.45);
-      });
+        osc.stop(t + step);
+      }
     }
   }, []);
 
@@ -123,12 +157,26 @@ export function NewOrderAlert() {
     })();
   }
 
+  // Are we the admin? Everything else waits on this answer.
+  useEffect(() => {
+    void (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+      setIsAdmin(data?.role === "admin");
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Restore preferences + first load
   useEffect(() => {
+    if (!isAdmin) return;
     setEnabled(localStorage.getItem(ENABLED_KEY) === "1");
     setSnoozedUntil(Number(localStorage.getItem(SNOOZE_KEY) ?? 0));
     void loadPending();
-  }, [loadPending]);
+  }, [isAdmin, loadPending]);
 
   // Keep the snooze countdown honest
   useEffect(() => {
@@ -138,6 +186,7 @@ export function NewOrderAlert() {
 
   // Any order change anywhere -> reload what's pending
   useEffect(() => {
+    if (!isAdmin) return;
     const channel = supabase
       .channel("admin-pending-orders")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, (payload) => {
@@ -163,7 +212,7 @@ export function NewOrderAlert() {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadPending]);
+  }, [isAdmin, loadPending]);
 
   // The alarm: re-ring while anything is waiting
   useEffect(() => {
@@ -175,25 +224,32 @@ export function NewOrderAlert() {
 
   const showModal = pending.length > 0 && !snoozing;
 
+  // Customers and riders never see or hear any of this.
+  if (!isAdmin) return null;
+
   return (
     <>
+      {/* Floats on every page now, so the alarm can always be armed or muted —
+          and so you can see at a glance that it IS armed. */}
       <button
         onClick={enabled ? disable : enable}
         title={enabled ? "Alarm is on — click to mute" : "Turn on the new-order alarm"}
         className={cn(
-          "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-          enabled ? "bg-green-100 text-green-800 hover:bg-green-200" : "bg-amber-100 text-amber-900 hover:bg-amber-200"
+          "fixed bottom-4 right-4 z-[70] flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-semibold shadow-warm transition-colors",
+          enabled
+            ? "bg-green-100 text-green-800 hover:bg-green-200"
+            : "animate-pulse bg-amber-200 text-amber-900 hover:bg-amber-300"
         )}
       >
         {enabled ? <Bell size={14} /> : <BellOff size={14} />}
-        <span className="hidden sm:inline">{enabled ? "Alarm on" : "Turn on alarm"}</span>
+        {enabled ? "Alarm on" : "Turn on alarm"}
       </button>
 
       {/* Snoozed: small nag so it's never truly out of sight */}
       {pending.length > 0 && snoozing && (
         <button
           onClick={() => setSnoozedUntil(0)}
-          className="fixed bottom-4 right-4 z-[80] flex animate-fade-up items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-900 shadow-warm"
+          className="fixed bottom-16 right-4 z-[80] flex animate-fade-up items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-900 shadow-warm"
         >
           <AlarmClock size={16} />
           {pending.length} order{pending.length > 1 ? "s" : ""} waiting · {Math.floor(snoozeLeft / 60)}:
