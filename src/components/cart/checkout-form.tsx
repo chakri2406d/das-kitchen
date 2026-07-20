@@ -170,12 +170,22 @@ export function CheckoutForm({
       return;
     }
 
+    // Location is mandatory — the rider needs an exact pin to reach the door.
+    if (!coords) {
+      setError("Please share your location — the rider needs it to reach your door.");
+      if (locState !== "loading") setLocState("idle");
+      document
+        .getElementById("location-box")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
     setSubmitting(true);
     const payload: CheckoutInput = {
       ...form,
       notes,
-      lat: coords?.lat ?? null,
-      lng: coords?.lng ?? null,
+      lat: coords.lat,
+      lng: coords.lng,
       couponCode: coupon?.code ?? null,
       paymentMethod: payBy,
       // The fee we showed them. The server recalculates and refuses if the two
@@ -199,7 +209,7 @@ export function CheckoutForm({
 
   return (
     <form onSubmit={submit} className="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem]">
-      <div className="space-y-4 rounded-2xl border border-brown/10 bg-soft p-6 shadow-card">
+      <div className="space-y-4 rounded-2xl border border-brown/10 bg-soft p-4 shadow-card sm:p-6">
         <h2 className="font-display text-xl text-coffee">Delivery details</h2>
 
         {/* Saved addresses — one tap instead of retyping everything */}
@@ -272,14 +282,23 @@ export function CheckoutForm({
           />
         </div>
 
-        <div className="rounded-xl border border-brown/15 bg-white p-4">
+        <div
+          id="location-box"
+          className={cn(
+            "rounded-xl border p-4",
+            coords ? "border-brown/15 bg-white" : "border-red-300 bg-red-50/60"
+          )}
+        >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-coffee">Share your location</p>
+              <p className="text-sm font-medium text-coffee">
+                Share your location <span className="text-red-500">*</span>
+              </p>
               <p className="text-xs text-brown/60">
+                Required — the delivery rider needs your exact spot to reach you
                 {perKmFee > 0 && freeRadiusKm > 0
-                  ? `Helps the rider find you — and sets your exact delivery fee beyond ${freeRadiusKm} km.`
-                  : "Helps the rider find you faster."}
+                  ? `, and it sets your exact fee beyond ${freeRadiusKm} km.`
+                  : "."}
               </p>
             </div>
             <button
@@ -307,13 +326,14 @@ export function CheckoutForm({
           )}
           {locState === "error" && (
             <p className="mt-2 text-xs text-red-600">
-              Couldn&apos;t get location. You can still order with the address above.
+              Couldn&apos;t get your location. Location is required to place an order — please
+              allow location access in your browser and tap &quot;Use my location&quot; again.
             </p>
           )}
         </div>
       </div>
 
-      <aside className="h-fit space-y-3 rounded-2xl border border-brown/10 bg-soft p-6 shadow-card">
+      <aside className="h-fit space-y-3 rounded-2xl border border-brown/10 bg-soft p-4 shadow-card sm:p-6">
         <h2 className="font-display text-xl text-coffee">Summary</h2>
 
         {/* Coupon */}
@@ -437,12 +457,21 @@ export function CheckoutForm({
           </p>
         )}
         {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+        {!coords && (
+          <p className="text-xs font-medium text-red-600">
+            Share your location above to place the order.
+          </p>
+        )}
         <button
           type="submit"
-          disabled={submitting || quote.refusal != null}
+          disabled={submitting || quote.refusal != null || !coords}
           className="w-full rounded-full bg-coffee px-6 py-3 text-sm font-medium text-cream hover:bg-brown disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {submitting ? "Placing order…" : `Place order · ${formatINR(total)}`}
+          {submitting
+            ? "Placing order…"
+            : !coords
+              ? "Share location to continue"
+              : `Place order · ${formatINR(total)}`}
         </button>
       </aside>
     </form>

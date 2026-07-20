@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 /**
- * While the rider has an order out for delivery, quietly push their GPS position
- * every ~20s so the customer can track them. Throttled deliberately to stay well
- * inside the Supabase free tier and to spare the rider's battery.
+ * While the rider has an order out for delivery, push their GPS position every
+ * ~20s so the customer can track them. maximumAge:0 forces a FRESH fix each time
+ * (never a stale cached location), so the distance shown is where they are now.
  */
 export function RiderPing({ orderId, riderId }: { orderId: string | null; riderId: string }) {
   const supabase = createClient();
@@ -38,7 +38,7 @@ export function RiderPing({ orderId, riderId }: { orderId: string | null; riderI
           .eq("id", riderId);
       },
       () => setState("denied"),
-      { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
     );
 
     return () => navigator.geolocation.clearWatch(watch);

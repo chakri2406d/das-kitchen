@@ -72,7 +72,7 @@ export default async function OrdersPage({
     <main className="min-h-screen bg-cream">
       <Navbar />
       {placed && <PlacedCelebration orderNumber={placed} />}
-      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:py-12 sm:px-6">
         <h1 className="font-display text-3xl text-coffee">My Orders</h1>
 
         {orders.length === 0 ? (
@@ -158,9 +158,20 @@ export default async function OrdersPage({
                   )}
 
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-brown/10 pt-3">
-                    <span className="text-xs uppercase text-brown/50">
-                      {o.payment_method === "cod" ? "Cash on Delivery" : "Online (UPI)"}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs uppercase text-brown/50">
+                        {o.payment_method === "cod" ? "Cash on Delivery" : "Online (UPI)"}
+                      </span>
+                      {o.payment_status === "paid" ? (
+                        <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">
+                          Prepaid ✓
+                        </span>
+                      ) : !FINISHED.has(o.status) ? (
+                        <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
+                          Pay {formatINR(Number(o.total))} on delivery
+                        </span>
+                      ) : null}
+                    </div>
                     <span className="font-semibold text-coffee">{formatINR(Number(o.total))}</span>
                   </div>
 

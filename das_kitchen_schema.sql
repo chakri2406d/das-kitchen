@@ -412,8 +412,8 @@ create policy tracking_write on public.delivery_tracking for insert
 -- ---------------------------------------------------------------------------
 -- 7. Business settings singleton
 -- ---------------------------------------------------------------------------
-insert into public.business_settings (id, status, whatsapp, phone)
-values (1, 'open', '917989050925', '7989050925')
+insert into public.business_settings (id, status, whatsapp, phone, email)
+values (1, 'open', '917799546464', '7799546464', 'daskitchen03@gmail.com')
 on conflict (id) do nothing;
 
 -- ============================================================================

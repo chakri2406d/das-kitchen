@@ -59,7 +59,12 @@ export function DeliveryOrderCard({
     ? mapsNavUrl(order.customer_lat as number, order.customer_lng as number)
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
 
-  const collectCash = order.payment_method === "cod" && order.payment_status !== "paid";
+  // Based ONLY on whether the money has actually been received. Using the chosen
+  // method here was a bug: an order marked paid-by-UPI and then un-marked still
+  // looked "prepaid" to the rider, so they would collect nothing.
+  const isPaid = order.payment_status === "paid";
+  const collectCash = !isPaid;
+  const collectLabel = order.payment_method === "upi" ? "COLLECT PAYMENT" : "COLLECT CASH";
 
   function run(fn: () => Promise<{ ok: boolean; error?: string; message?: string }>) {
     setMsg(null);
@@ -136,11 +141,26 @@ export function DeliveryOrderCard({
       </div>
 
       {/* Money */}
-      <div className="mt-3 flex items-center justify-between rounded-xl bg-cream px-4 py-3">
-        <span className="text-sm text-brown/70">
-          {collectCash ? "Collect cash on delivery" : "Already paid — collect nothing"}
+      <div
+        className={cn(
+          "mt-3 flex items-center justify-between rounded-xl border px-4 py-3",
+          collectCash ? "border-amber-200 bg-amber-50" : "border-green-200 bg-green-50"
+        )}
+      >
+        <span className="flex items-center gap-2 text-sm">
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-0.5 text-xs font-bold",
+              collectCash ? "bg-amber-200 text-amber-900" : "bg-green-200 text-green-900"
+            )}
+          >
+            {collectCash ? collectLabel : "PREPAID"}
+          </span>
+          <span className={collectCash ? "text-amber-900" : "text-green-800"}>
+            {collectCash ? "Collect from customer" : "Already paid — collect nothing"}
+          </span>
         </span>
-        <span className={cn("font-semibold", collectCash ? "text-coffee" : "text-green-700")}>
+        <span className={cn("font-bold", collectCash ? "text-coffee" : "text-green-700")}>
           {formatINR(Number(order.total))}
         </span>
       </div>

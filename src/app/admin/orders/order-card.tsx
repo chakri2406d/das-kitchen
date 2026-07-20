@@ -6,6 +6,7 @@ import { formatINR, ORDER_STATUS_LABEL, formatDateTime, cn } from "@/lib/utils";
 import { formatKm, directionsUrl } from "@/lib/geo";
 import type { OrderStatus, PaymentMethod } from "@/types/database";
 import { updateOrderStatus, assignRider, setPayment } from "./actions";
+import { waLink, riderOrderMessage, type WaOrderInfo } from "@/lib/whatsapp";
 
 export type AdminOrderItem = { item_name: string; quantity: number };
 export type AdminOrder = {
@@ -95,6 +96,36 @@ export function OrderCard({
     order.customer_lat != null && order.customer_lng != null
       ? `https://www.google.com/maps/search/?api=1&query=${order.customer_lat},${order.customer_lng}`
       : null;
+
+  const assignedRider = order.delivery_partner_id
+    ? riders.find((r) => r.id === order.delivery_partner_id) ?? null
+    : null;
+
+  function orderInfo(): WaOrderInfo {
+    return {
+      orderNumber: order.order_number ?? order.id.slice(0, 8),
+      items,
+      total: Number(order.total),
+      paymentMethod: order.payment_method,
+      paymentStatus: order.payment_status,
+      customerName: addr.full_name ?? null,
+      customerPhone: addr.phone ?? null,
+      address: fullAddress,
+      lat: order.customer_lat,
+      lng: order.customer_lng,
+      deliveryOtp: order.delivery_otp,
+      portalUrl: typeof window !== "undefined" ? `${window.location.origin}/delivery` : null,
+    };
+  }
+
+  function waToRider() {
+    if (!assignedRider?.phone) return;
+    window.open(waLink(assignedRider.phone, riderOrderMessage(orderInfo())), "_blank");
+  }
+
+  function waShare() {
+    window.open(waLink(null, riderOrderMessage(orderInfo())), "_blank");
+  }
 
   return (
     <article className="rounded-2xl border border-brown/10 bg-soft p-5 shadow-card">
@@ -295,6 +326,28 @@ export function OrderCard({
               </option>
             ))}
           </select>
+
+          {assignedRider && assignedRider.phone && (
+            <button
+              type="button"
+              onClick={waToRider}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-4 py-1.5 text-sm font-semibold text-white hover:brightness-95"
+            >
+              WhatsApp {assignedRider.full_name?.split(" ")[0] ?? "rider"}
+            </button>
+          )}
+          {assignedRider && !assignedRider.phone && (
+            <span className="text-xs font-medium text-amber-700">
+              Add this rider&apos;s phone in Riders to WhatsApp them.
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={waShare}
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#25D366] px-4 py-1.5 text-sm font-medium text-[#128C7E] hover:bg-[#25D366]/10"
+          >
+            Share on WhatsApp
+          </button>
 
           {order.status !== "pending" && (
             <button

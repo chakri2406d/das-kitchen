@@ -95,7 +95,7 @@ export function MenuCard({
 
   return (
     <article
-      className="animate-fade-up rounded-2xl border border-brown/10 bg-soft p-5 shadow-card transition-shadow hover:shadow-warm"
+      className="animate-fade-up flex flex-col self-start rounded-2xl border border-brown/10 bg-soft p-4 shadow-card transition-shadow hover:shadow-warm sm:p-5"
       style={{ animationDelay: `${Math.min(index * 45, 320)}ms` }}
     >
       <div className="flex items-start justify-between gap-3">
@@ -128,7 +128,7 @@ export function MenuCard({
         </div>
       </div>
 
-      <div className="mt-4 flex items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         {multi && (
           <select
             value={sel}

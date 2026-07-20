@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { distanceKm, quoteDelivery } from "@/lib/geo";
+import { sendPushToAdmins } from "@/lib/push";
 import type { PaymentMethod } from "@/types/database";
 
 export type CheckoutInput = {
@@ -113,6 +114,12 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "You must be signed in to place an order." };
 
+  // ---- Location is mandatory ------------------------------------------------
+  // The rider needs an exact pin; never let an order through without one.
+  if (input.lat == null || input.lng == null) {
+    return { ok: false, error: "Please share your delivery location before placing the order." };
+  }
+
   // ---- Cart -----------------------------------------------------------------
   const { data: cart } = await supabase
     .from("cart_items")
@@ -156,9 +163,6 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
     .eq("id", 1)
     .single();
 
-  // If this read fails we know nothing: not whether the kitchen is open, not the
-  // minimum, not the delivery radius. Refuse rather than let an order through
-  // with none of the rules applied.
   if (settingsErr || !settings) {
     return {
       ok: false,
@@ -179,8 +183,6 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
   }
 
   // ---- How far away are they, and what does that cost? ---------------------
-  // Priced here, on the server, from the settings row — the browser's numbers
-  // are only ever used to check we agree, never to set the price.
   const away =
     settings?.kitchen_lat != null &&
     settings?.kitchen_lng != null &&
@@ -200,8 +202,6 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
 
   const deliveryFee = quote.fee;
 
-  // If the price moved between them opening checkout and pressing the button
-  // (you changed a setting mid-order), stop rather than quietly charge more.
   if (input.expectedDeliveryFee != null && Math.round(input.expectedDeliveryFee) !== Math.round(deliveryFee)) {
     return {
       ok: false,
@@ -227,12 +227,8 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
   const paymentMethod: PaymentMethod = wantsUpi ? "upi" : "cod";
 
   const total = Math.max(0, subtotal - discount) + deliveryFee;
-  // 8 clock digits alone repeat every ~27.8 hours; the 2 random digits make a
-  // duplicate (which would fail the order outright) effectively impossible.
   const orderNumber =
     "DK" + Date.now().toString().slice(-8) + Math.floor(Math.random() * 100).toString().padStart(2, "0");
-  // Generated here rather than relying on the DB trigger — a missing OTP
-  // would let a rider confirm delivery without the customer.
   const deliveryOtp = String(Math.floor(1000 + Math.random() * 9000));
 
   const deliveryAddress = {
@@ -263,7 +259,6 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
       total,
       coupon_id: couponId,
       payment_method: paymentMethod,
-      // Always 'pending' — a human confirms the money arrived. UPI never calls back.
       payment_status: "pending",
       delivery_otp: deliveryOtp,
       delivery_notes: input.notes || null,
@@ -291,8 +286,7 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
   const { error: itemsErr } = await supabase.from("order_items").insert(orderItems);
   if (itemsErr) return { ok: false, error: itemsErr.message };
 
-  // Remember this address so they never type it twice. Skip if we already have
-  // the same one — nobody wants an address book full of duplicates.
+  // Remember this address so they never type it twice.
   const { data: known } = await supabase
     .from("addresses")
     .select("id")
@@ -316,6 +310,17 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
       longitude: input.lng,
     });
   }
+
+  // Wake the kitchen: this reaches the owner's phone even with the browser shut.
+  const itemSummary = items
+    .map((r) => `${r.menu_items!.name} x${r.quantity}`)
+    .join(", ");
+  await sendPushToAdmins({
+    title: `New order ${rupees(total)} - Das Kitchen`,
+    body: `#${orderNumber} - ${itemSummary}`,
+    url: "/admin/orders",
+    tag: order.id,
+  });
 
   // Powers "Best Sellers" / specials ordering.
   await supabase.rpc("bump_order_counts", { p_order_id: order.id });
