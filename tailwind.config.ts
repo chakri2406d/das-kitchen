@@ -51,11 +51,16 @@ const config: Config = {
           "0%": { opacity: "0", transform: "scale(0.96)" },
           "100%": { opacity: "1", transform: "scale(1)" },
         },
+        "slide-in-right": {
+          "0%": { transform: "translateX(100%)" },
+          "100%": { transform: "translateX(0)" },
+        },
       },
       animation: {
         "fade-up": "fade-up 0.6s ease-out both",
         "fade-in": "fade-in 0.8s ease-out both",
         "scale-in": "scale-in 0.6s ease-out both",
+        "slide-in-right": "slide-in-right 0.25s ease-out both",
       },
     },
   },
