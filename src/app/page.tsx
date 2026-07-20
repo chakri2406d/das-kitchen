@@ -300,6 +300,16 @@ export default async function HomePage() {
           <div className="text-sm text-cream/70">
             {fssai && <p>FSSAI Lic. No: {fssai}</p>}
             <p className="mt-2">© {new Date().getFullYear()} Das Kitchen</p>
+            <p className="mt-3 border-t border-cream/15 pt-3">
+              Website by{" "}
+              <span className="font-semibold text-cream/90">Varahi Technologies</span>
+            </p>
+            <p className="mt-0.5">
+              Want a website like this?{" "}
+              <a href="tel:+917989050925" className="font-semibold text-cream/90 hover:text-gold">
+                +91 79890 50925
+              </a>
+            </p>
           </div>
         </div>
       </footer>
