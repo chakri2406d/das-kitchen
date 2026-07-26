@@ -5,8 +5,8 @@
 -- ============================================================================
 
 update public.business_settings
-set phone    = '7799546464',
-    whatsapp = '917799546464',          -- country code, no "+" (wa.me format)
+set phone    = '8008885266',
+    whatsapp = '918008885266',          -- country code, no "+" (wa.me format)
     email    = 'daskitchen03@gmail.com'
 where id = 1;
 
