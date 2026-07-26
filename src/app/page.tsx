@@ -10,6 +10,7 @@ import type { MenuItem } from "@/types/database";
 import { ChefHat, Sparkles, Truck, HeartHandshake, MapPin, Phone, Mail, Instagram } from "lucide-react";
 
 const WHATSAPP_FALLBACK = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "919999999999";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://das-kitchen.vercel.app";
 
 const WHY = [
   { icon: ChefHat, title: "Freshly prepared daily", body: "Cooked to order every morning — never reheated, never frozen." },
@@ -49,8 +50,44 @@ export default async function HomePage() {
       ? `${settings.open_time.slice(0, 5)} - ${settings.close_time.slice(0, 5)}`
       : null;
 
+  // Structured data (JSON-LD) so Google recognises this as the official Das
+  // Kitchen restaurant page — name, address, phone, hours, map location. This
+  // is what lets the site show up properly in search and as a rich result.
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Restaurant",
+    name: BUSINESS.name,
+    description:
+      "Freshly prepared homemade meals from Das Kitchen — breakfast, lunch, dinner and combos, delivered warm across Old Bowenpally, Hyderabad.",
+    servesCuisine: ["Indian", "Chinese"],
+    url: SITE_URL,
+    image: `${SITE_URL}/logo.png`,
+    priceRange: "₹₹",
+    ...(phone ? { telephone: `+91${phone}` } : {}),
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: address,
+      addressLocality: "Bowenpally, Hyderabad",
+      addressRegion: "Telangana",
+      addressCountry: "IN",
+    },
+    ...(kLat != null && kLng != null
+      ? { geo: { "@type": "GeoCoordinates", latitude: kLat, longitude: kLng } }
+      : {}),
+    ...(settings?.open_time && settings?.close_time
+      ? {
+          openingHours: `Mo-Su ${settings.open_time.slice(0, 5)}-${settings.close_time.slice(0, 5)}`,
+        }
+      : {}),
+    sameAs: [BUSINESS.instagramUrl],
+  };
+
   return (
     <main className="min-h-screen bg-cream">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <Navbar />
 
       {/* ── Hero ─────────────────────────────────────────── */}
