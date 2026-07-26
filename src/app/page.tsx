@@ -37,7 +37,9 @@ export default async function HomePage() {
   ]);
 
   const specials = (specialRows ?? []) as MenuItem[];
-  const whatsapp = settings?.whatsapp || WHATSAPP_FALLBACK;
+  // Digits only — WhatsApp links break on spaces, "+", or brackets, so we strip
+  // anything that isn't a number no matter how it was typed in Admin → Settings.
+  const whatsapp = (settings?.whatsapp || WHATSAPP_FALLBACK).replace(/[^0-9]/g, "");
   const phone = settings?.phone;
   const email = settings?.email;
   const fssai = settings?.fssai_license;
