@@ -86,7 +86,7 @@ export default async function HomePage() {
     <main className="min-h-screen bg-cream">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       <Navbar />
 
@@ -94,7 +94,7 @@ export default async function HomePage() {
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-gold-soft/40 blur-3xl" />
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 md:grid-cols-2 md:py-24">
-          <div className="animate-fade-up">
+          <div className="min-w-0 animate-fade-up">
             <span className="inline-flex items-center gap-2 rounded-full bg-brown/5 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-brown">
               {BUSINESS.promise}
             </span>
@@ -127,7 +127,7 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="relative mx-auto animate-scale-in">
+          <div className="relative mx-auto min-w-0 animate-scale-in">
             <div className="absolute inset-0 -z-10 rounded-full bg-gradient-to-br from-gold-soft/60 to-transparent blur-2xl" />
             <Image
               src="/logo.png"
@@ -135,7 +135,7 @@ export default async function HomePage() {
               width={440}
               height={440}
               priority
-              className="mx-auto drop-shadow-[0_20px_40px_rgba(92,64,51,0.25)]"
+              className="mx-auto h-auto max-w-full drop-shadow-[0_20px_40px_rgba(92,64,51,0.25)]"
             />
           </div>
         </div>

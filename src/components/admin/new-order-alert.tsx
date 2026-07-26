@@ -335,10 +335,25 @@ export function NewOrderAlert() {
           };
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        // On (re)connect, re-fetch. Realtime does NOT replay events that
+        // happened while the socket was down (sleep / Wi-Fi blip), so without
+        // this an order placed during the gap would never trigger the alarm.
+        if (status === "SUBSCRIBED") void loadPending();
+      });
     return () => {
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, loadPending]);
+
+  // Safety net: poll for pending orders on a slow timer too, so even if the
+  // realtime socket silently drops an order can never sit unseen. Cheap query,
+  // runs only while the admin has a page open.
+  useEffect(() => {
+    if (!isAdmin) return;
+    const t = setInterval(() => void loadPending(), 20000);
+    return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin, loadPending]);
 
@@ -441,20 +456,18 @@ export function NewOrderAlert() {
                             {addr.phone ? ` · ${addr.phone}` : ""}
                           </p>
 
-                          {/* Mobile: Accept full-width on top, WhatsApp + Reject
-                              side-by-side below. Desktop (sm+): all three in a row. */}
-                          <div className="mt-4 grid grid-cols-2 gap-2 sm:flex">
+                          <div className="mt-4 flex gap-2">
                             <button
                               onClick={() => decide(o.id, true)}
                               disabled={busyId === o.id}
-                              className="col-span-2 rounded-full bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60 sm:flex-1"
+                              className="flex-1 rounded-full bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
                             >
                               Accept
                             </button>
                             <button
                               type="button"
                               onClick={() => shareWhatsApp(o)}
-                              className="rounded-full bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white hover:brightness-95 sm:flex-none"
+                              className="rounded-full bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white hover:brightness-95"
                             >
                               WhatsApp
                             </button>
@@ -465,7 +478,7 @@ export function NewOrderAlert() {
                                 }
                               }}
                               disabled={busyId === o.id}
-                              className="rounded-full border border-red-300 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60 sm:flex-none"
+                              className="rounded-full border border-red-300 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
                             >
                               Reject
                             </button>
@@ -475,13 +488,13 @@ export function NewOrderAlert() {
                     })}
                   </div>
 
-                  <div className="flex flex-col items-stretch gap-2 border-t border-brown/10 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center justify-between gap-3 border-t border-brown/10 px-5 py-3">
                     <p className="text-xs text-brown/55">
                       {enabled ? "Siren wails until you decide." : "Sound is off — turn the alarm on in the header."}
                     </p>
                     <button
                       onClick={snooze}
-                      className="flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-brown/25 px-4 py-2 text-sm font-medium text-brown hover:bg-brown/5"
+                      className="flex shrink-0 items-center gap-1.5 rounded-full border border-brown/25 px-4 py-2 text-sm font-medium text-brown hover:bg-brown/5"
                     >
                       <AlarmClock size={15} /> Snooze 5 min
                     </button>

@@ -16,6 +16,10 @@
   }
   body {
     @apply bg-cream text-brown font-sans antialiased;
+    /* Never let a stray wide element scroll the whole page sideways on phones.
+       `clip` (not `hidden`) doesn't create a scroll container, so the sticky
+       navbar keeps working. */
+    overflow-x: clip;
   }
   h1, h2, h3, h4 {
     @apply font-display text-coffee;
