@@ -441,18 +441,20 @@ export function NewOrderAlert() {
                             {addr.phone ? ` · ${addr.phone}` : ""}
                           </p>
 
-                          <div className="mt-4 flex gap-2">
+                          {/* Mobile: Accept full-width on top, WhatsApp + Reject
+                              side-by-side below. Desktop (sm+): all three in a row. */}
+                          <div className="mt-4 grid grid-cols-2 gap-2 sm:flex">
                             <button
                               onClick={() => decide(o.id, true)}
                               disabled={busyId === o.id}
-                              className="flex-1 rounded-full bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+                              className="col-span-2 rounded-full bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60 sm:flex-1"
                             >
                               Accept
                             </button>
                             <button
                               type="button"
                               onClick={() => shareWhatsApp(o)}
-                              className="rounded-full bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white hover:brightness-95"
+                              className="rounded-full bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white hover:brightness-95 sm:flex-none"
                             >
                               WhatsApp
                             </button>
@@ -463,7 +465,7 @@ export function NewOrderAlert() {
                                 }
                               }}
                               disabled={busyId === o.id}
-                              className="rounded-full border border-red-300 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                              className="rounded-full border border-red-300 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60 sm:flex-none"
                             >
                               Reject
                             </button>
@@ -473,13 +475,13 @@ export function NewOrderAlert() {
                     })}
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 border-t border-brown/10 px-5 py-3">
+                  <div className="flex flex-col items-stretch gap-2 border-t border-brown/10 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs text-brown/55">
                       {enabled ? "Siren wails until you decide." : "Sound is off — turn the alarm on in the header."}
                     </p>
                     <button
                       onClick={snooze}
-                      className="flex shrink-0 items-center gap-1.5 rounded-full border border-brown/25 px-4 py-2 text-sm font-medium text-brown hover:bg-brown/5"
+                      className="flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-brown/25 px-4 py-2 text-sm font-medium text-brown hover:bg-brown/5"
                     >
                       <AlarmClock size={15} /> Snooze 5 min
                     </button>
