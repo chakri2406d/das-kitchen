@@ -5,6 +5,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { CartBadge } from "@/components/cart/cart-badge";
+import { InstallButton } from "@/components/pwa/install-button";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { BUSINESS } from "@/lib/business";
 import type { BusinessStatus } from "@/types/database";
@@ -58,6 +59,9 @@ export async function Navbar() {
           >
             <Instagram size={18} />
           </a>
+
+          {/* Install-as-app button — only shows when the app can be installed. */}
+          <InstallButton />
 
           {/* Cart stays visible on every screen — it's the money button. */}
           <CartBadge />
