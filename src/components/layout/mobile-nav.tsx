@@ -28,8 +28,11 @@ export function MobileNav({
   instagramUrl: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const supabase = createClient();
+
+  useEffect(() => setMounted(true), []);
 
   // Don't let the page scroll behind the drawer.
   useEffect(() => {
@@ -46,20 +49,19 @@ export function MobileNav({
     router.refresh();
   }
 
-  // The drawer itself. Rendered through a portal (see below) so it attaches to
-  // <body>, NOT inside the navbar's `backdrop-blur` header. A blurred/filtered
-  // ancestor becomes the containing block for `position: fixed`, which would
-  // otherwise trap this overlay inside the ~64px header and crush the links.
-  const drawer = (
-    <div className="fixed inset-0 z-[60] flex md:hidden">
-      <div
-        className="flex-1 bg-coffee/40 backdrop-blur-sm"
-        onClick={() => setOpen(false)}
-        aria-hidden="true"
-      />
-      <nav className="flex h-full w-[80%] max-w-xs animate-fade-up flex-col bg-cream shadow-warm">
-        <div className="flex shrink-0 items-center justify-between border-b border-brown/10 px-5 py-4">
-          <span className="font-display text-lg text-coffee">Das Kitchen</span>
+  const linkCls = "rounded-xl px-4 py-3 text-base font-medium text-brown hover:bg-brown/5";
+
+  // The drawer is rendered into document.body, NOT inline. The navbar it lives
+  // in uses backdrop-blur, and a `backdrop-filter` ancestor becomes the
+  // containing block for `position: fixed` — which would trap this overlay
+  // inside the 64px-tall header instead of covering the screen. Portalling to
+  // the body sidesteps that entirely.
+  const overlay = open && (
+    <div className="fixed inset-0 z-[100] md:hidden">
+      <div className="absolute inset-0 bg-coffee/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
+      <nav className="absolute right-0 top-0 flex h-full w-[82%] max-w-xs animate-slide-in-right flex-col bg-cream shadow-warm">
+        <div className="flex items-center justify-between border-b border-brown/10 px-5 py-4">
+          <span className="font-display text-lg text-coffee">Menu</span>
           <button
             onClick={() => setOpen(false)}
             aria-label="Close menu"
@@ -69,14 +71,9 @@ export function MobileNav({
           </button>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-4">
+        <div className="flex flex-1 flex-col gap-1 overflow-y-auto p-4">
           {LINKS.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              onClick={() => setOpen(false)}
-              className="rounded-xl px-4 py-3 text-base font-medium text-brown hover:bg-brown/5"
-            >
+            <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className={linkCls}>
               {l.label}
             </Link>
           ))}
@@ -85,18 +82,10 @@ export function MobileNav({
 
           {signedIn ? (
             <>
-              <Link
-                href={dashboardHref}
-                onClick={() => setOpen(false)}
-                className="rounded-xl px-4 py-3 text-base font-medium text-brown hover:bg-brown/5"
-              >
+              <Link href={dashboardHref} onClick={() => setOpen(false)} className={linkCls}>
                 {dashboardLabel}
               </Link>
-              <Link
-                href="/cart"
-                onClick={() => setOpen(false)}
-                className="rounded-xl px-4 py-3 text-base font-medium text-brown hover:bg-brown/5"
-              >
+              <Link href="/cart" onClick={() => setOpen(false)} className={linkCls}>
                 My Cart
               </Link>
               <button
@@ -121,7 +110,7 @@ export function MobileNav({
           href={instagramUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex shrink-0 items-center gap-2 border-t border-brown/10 px-5 py-4 text-sm font-medium text-brown hover:text-gold"
+          className="flex items-center gap-2 border-t border-brown/10 px-5 py-4 text-sm font-medium text-brown hover:text-gold"
         >
           <Instagram size={18} /> Follow us on Instagram
         </a>
@@ -139,9 +128,7 @@ export function MobileNav({
         <Menu size={22} />
       </button>
 
-      {/* `open` only becomes true after a client-side tap, so document.body is
-          always available here — safe with server rendering. */}
-      {open && createPortal(drawer, document.body)}
+      {mounted && createPortal(overlay, document.body)}
     </>
   );
 }

@@ -29,10 +29,26 @@ const SNOOZE_KEY = "dk_alerts_snoozed_until";
 const SNOOZE_IDS_KEY = "dk_alerts_snoozed_ids";
 const SNOOZE_MS = 5 * 60 * 1000;
 
+/**
+ * Won't let an order be missed.
+ *
+ * Mounted in the ROOT layout, so it follows the admin onto every page — the
+ * menu, the home page, anywhere. It renders nothing at all for customers and
+ * riders. While ANY order sits unaccepted it blocks the screen and wails a
+ * continuous siren until it's Accepted or Rejected. Snooze buys 5 minutes of
+ * quiet — but a brand-new order rings straight through it.
+ *
+ * It works off "orders that are still pending" rather than off realtime events,
+ * so a refresh, a dropped connection or a closed laptop can't make an order
+ * vanish — reopen the page and it's still shouting.
+ */
 export function NewOrderAlert() {
   const supabase = createClient();
   const router = useRouter();
 
+  // Checked client-side on purpose: doing it on the server would drag a cookie
+  // read into the root layout and make every page dynamic.
+  const [isAdmin, setIsAdmin] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [pending, setPending] = useState<PendingOrder[]>([]);
   const [snoozedUntil, setSnoozedUntil] = useState<number>(0);
@@ -220,8 +236,22 @@ export function NewOrderAlert() {
     })();
   }
 
+  // Are we the admin? Everything else waits on this answer.
+  useEffect(() => {
+    void (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+      setIsAdmin(data?.role === "admin");
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Restore preferences + first load
   useEffect(() => {
+    if (!isAdmin) return;
     setEnabled(localStorage.getItem(ENABLED_KEY) === "1");
     setSnoozedUntil(Number(localStorage.getItem(SNOOZE_KEY) ?? 0));
     try {
@@ -231,7 +261,7 @@ export function NewOrderAlert() {
       /* ignore */
     }
     void loadPending();
-  }, [loadPending]);
+  }, [isAdmin, loadPending]);
 
   useEffect(() => setMounted(true), []);
 
@@ -277,6 +307,7 @@ export function NewOrderAlert() {
 
   // Any order change anywhere -> reload pending (live, no refresh)
   useEffect(() => {
+    if (!isAdmin) return;
     const channel = supabase
       .channel("admin-pending-orders")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, (payload) => {
@@ -309,7 +340,7 @@ export function NewOrderAlert() {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadPending]);
+  }, [isAdmin, loadPending]);
 
   // The alarm: siren wails continuously while anything is waiting.
   useEffect(() => {
@@ -324,18 +355,25 @@ export function NewOrderAlert() {
   const showModal = visible.length > 0;
   const soundBlocked = enabled && showModal && !audioReady;
 
+  // Customers and riders never see or hear any of this.
+  if (!isAdmin) return null;
+
   return (
     <>
+      {/* Floats on every page now, so the alarm can always be armed or muted —
+          and so you can see at a glance that it IS armed. */}
       <button
         onClick={enabled ? disable : enable}
         title={enabled ? "Alarm is on — click to mute" : "Turn on the new-order alarm"}
         className={cn(
-          "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-          enabled ? "bg-green-100 text-green-800 hover:bg-green-200" : "bg-amber-100 text-amber-900 hover:bg-amber-200"
+          "fixed bottom-4 right-4 z-[70] flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-semibold shadow-warm transition-colors",
+          enabled
+            ? "bg-green-100 text-green-800 hover:bg-green-200"
+            : "animate-pulse bg-amber-200 text-amber-900 hover:bg-amber-300"
         )}
       >
         {enabled ? <Bell size={14} /> : <BellOff size={14} />}
-        <span className="hidden sm:inline">{enabled ? "Alarm on" : "Turn on alarm"}</span>
+        {enabled ? "Alarm on" : "Turn on alarm"}
       </button>
 
       {mounted &&

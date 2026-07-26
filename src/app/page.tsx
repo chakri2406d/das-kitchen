@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { Navbar } from "@/components/layout/navbar";
+import { InstagramFeed } from "@/components/layout/instagram-feed";
 import { ButtonLink } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { formatINR } from "@/lib/utils";
@@ -179,29 +180,34 @@ export default async function HomePage() {
           </p>
         </div>
 
-        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => (
-            <a
-              key={i}
-              href={BUSINESS.instagramUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ animationDelay: `${i * 80}ms` }}
-              className="group relative aspect-square animate-scale-in overflow-hidden rounded-2xl border border-brown/10 bg-gradient-to-br from-gold-soft/50 to-cream"
-            >
-              <Image
-                src="/logo.png"
-                alt="Das Kitchen on Instagram"
-                width={200}
-                height={200}
-                className="h-full w-full object-contain p-6 opacity-90 transition-transform duration-300 group-hover:scale-105"
-              />
-              <span className="absolute inset-0 flex items-center justify-center bg-coffee/0 text-cream opacity-0 transition-all duration-300 group-hover:bg-coffee/40 group-hover:opacity-100">
-                <Instagram size={28} />
-              </span>
-            </a>
-          ))}
-        </div>
+        <InstagramFeed
+          feedId={BUSINESS.beholdFeedId}
+          fallback={
+            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[0, 1, 2, 3].map((i) => (
+                <a
+                  key={i}
+                  href={BUSINESS.instagramUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ animationDelay: `${i * 80}ms` }}
+                  className="group relative aspect-square animate-scale-in overflow-hidden rounded-2xl border border-brown/10 bg-gradient-to-br from-gold-soft/50 to-cream"
+                >
+                  <Image
+                    src="/logo.png"
+                    alt="Das Kitchen on Instagram"
+                    width={200}
+                    height={200}
+                    className="h-full w-full object-contain p-6 opacity-90 transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center bg-coffee/0 text-cream opacity-0 transition-all duration-300 group-hover:bg-coffee/40 group-hover:opacity-100">
+                    <Instagram size={28} />
+                  </span>
+                </a>
+              ))}
+            </div>
+          }
+        />
 
         <div className="mt-6 text-center">
           <ButtonLink href={BUSINESS.instagramUrl} variant="coffee" size="md">
@@ -300,6 +306,16 @@ export default async function HomePage() {
           <div className="text-sm text-cream/70">
             {fssai && <p>FSSAI Lic. No: {fssai}</p>}
             <p className="mt-2">© {new Date().getFullYear()} Das Kitchen</p>
+            <p className="mt-3 border-t border-cream/15 pt-3">
+              Website by{" "}
+              <span className="font-semibold text-cream/90">Varahi Technologies</span>
+            </p>
+            <p className="mt-0.5">
+              Want a website like this?{" "}
+              <a href="tel:+917989050925" className="font-semibold text-cream/90 hover:text-gold">
+                +91 79890 50925
+              </a>
+            </p>
           </div>
         </div>
       </footer>

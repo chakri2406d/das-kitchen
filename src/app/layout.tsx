@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { NavProgress } from "@/components/layout/nav-progress";
+import { NewOrderAlert } from "@/components/admin/new-order-alert";
 import { RegisterSW } from "@/components/pwa/register-sw";
 import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
@@ -59,6 +60,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <NavProgress />
         </Suspense>
         {children}
+        {/* Renders null unless you're the admin. Lives here rather than in the
+            admin layout so a waiting order still shouts while you're browsing
+            the menu or the home page. */}
+        <NewOrderAlert />
         <RegisterSW />
       </body>
     </html>

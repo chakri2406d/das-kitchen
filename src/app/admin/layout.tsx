@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
 import { AdminNav } from "@/components/admin/admin-nav";
-import { NewOrderAlert } from "@/components/admin/new-order-alert";
 import { PushToggle } from "@/components/admin/push-toggle";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { getCurrentProfile } from "@/lib/supabase/server";
@@ -21,7 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <span className="shrink-0 rounded-full bg-coffee px-3 py-1 text-xs font-semibold text-cream">Admin</span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <NewOrderAlert />
+            {/* The alarm bell floats globally from the root layout. */}
             <PushToggle />
             <SignOutButton />
           </div>
