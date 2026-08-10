@@ -22,7 +22,7 @@ Copy the values from your local `.env.local`:
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Legacy API keys → anon public |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Legacy API keys → service_role (SECRET) |
-| `NEXT_PUBLIC_WHATSAPP_NUMBER` | 917799546464 |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | 918008885266 |
 
 Apply each to **Production, Preview and Development**. Then click **Deploy**.
 
@@ -39,7 +39,7 @@ Replace `YOUR-APP.vercel.app` with your real Vercel domain.
 **Google Cloud → APIs & Services → Credentials → your OAuth client**
 - Authorized JavaScript origins: add `https://YOUR-APP.vercel.app`
 - Authorized redirect URIs: unchanged — it stays
-  `https://kwkejupxpvujpwegwmee.supabase.co/auth/v1/callback`
+  `https://mcahjfpgpwkebktnpfdt.supabase.co/auth/v1/callback`
 
 ## 5. Test on the live URL
 - [ ] Menu loads with all 178 items
