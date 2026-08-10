@@ -3,8 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { OrderStatus, PaymentMethod, PaymentStatus } from "@/types/database";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+const DELETE_PASSWORD = process.env.ADMIN_DELETE_PASSWORD ?? "DAS03";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -80,6 +83,37 @@ export async function setPayment(
 
   if (error) return { ok: false, error: error.message };
   if (!updated) return { ok: false, error: "Couldn't update the payment — the database rejected it." };
+  revalidate();
+  return { ok: true };
+}
+
+/**
+ * Permanently delete orders. Admin-only, and additionally gated behind a shared
+ * password (ADMIN_DELETE_PASSWORD, default "DAS03") that is checked here on the
+ * server, so it never ships in the browser bundle. Uses the service-role client
+ * because `orders` has no DELETE row-level-security policy; child rows
+ * (order_items, payments, delivery_tracking) are removed automatically via
+ * ON DELETE CASCADE.
+ */
+export async function deleteOrders(orderIds: string[], password: string): Promise<ActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  if (!password || password !== DELETE_PASSWORD) {
+    return { ok: false, error: "Incorrect password. Nothing was deleted." };
+  }
+
+  const ids = (orderIds ?? []).filter(Boolean);
+  if (ids.length === 0) return { ok: false, error: "No orders selected." };
+
+  const admin = createAdminClient();
+  if (!admin) {
+    return { ok: false, error: "Deletion is not configured on the server (missing service-role key)." };
+  }
+
+  const { error } = await admin.from("orders").delete().in("id", ids);
+  if (error) return { ok: false, error: error.message };
+
   revalidate();
   return { ok: true };
 }

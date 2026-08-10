@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { distanceKm } from "@/lib/geo";
 import { OrderCard, type AdminOrder, type Rider } from "./order-card";
+import { PastOrders } from "./past-orders";
 
 export const dynamic = "force-dynamic";
 
@@ -107,11 +108,7 @@ export default async function AdminOrdersPage({
             </span>
           </h2>
 
-          <div className="mt-4 space-y-4 opacity-80">
-            {past.map((o) => (
-              <OrderCard key={o.id} {...cardProps(o)} />
-            ))}
-          </div>
+          <PastOrders items={past.map((o) => cardProps(o))} />
 
           {totalPages > 1 && (
             <div className="mt-6 flex items-center justify-between gap-3">
